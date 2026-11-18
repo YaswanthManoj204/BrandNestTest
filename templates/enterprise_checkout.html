@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enterprise Card Bundles – BrandNest</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<style>
+:root {
+  --bg: #F2F2F2;
+  --ink: #16171A;
+  --mute: #6E717A;
+  --line: #E1E1E3;
+  --panel: #FFFFFF;
+  --blue: #0084FF;
+  --green: #10B981;
+  --f: "Onest", "Segoe UI", system-ui, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--f);
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+a { color: inherit; text-decoration: none; }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; width: 100%; }
+.top { position: sticky; top: 16px; z-index: 30; padding: 0 20px; }
+.nav {
+  max-width: 1120px;
+  margin: 0 auto;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(14px);
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px 10px 22px;
+  box-shadow: 0 1px 0 var(--line);
+}
+.logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; letter-spacing: -0.03em; }
+.mark { width: 30px; height: 30px; border-radius: 9px; background: var(--ink); position: relative; overflow: hidden; }
+.mark::before { content: ""; position: absolute; left: 8px; top: 6px; width: 6px; height: 18px; background: linear-gradient(#fff, #8a8b90); }
+.mark::after { content: ""; position: absolute; left: 14px; top: 12px; width: 9px; height: 12px; background: linear-gradient(#fff, #8a8b90); clip-path: polygon(0 0, 100% 40%, 100% 100%, 0 100%); }
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font: 600 14.5px var(--f);
+  padding: 11px 22px;
+  border-radius: 999px;
+  border: 0;
+  cursor: pointer;
+  background: var(--ink);
+  color: #fff;
+  transition: all 0.2s ease;
+}
+.pill.light { background: #fff; color: var(--ink); border: 1px solid var(--line); }
+.pill.blue { background: var(--blue); color: #fff; }
+.pill.blue:hover { background: #006ee6; transform: translateY(-1px); }
+.pill.full { width: 100%; padding: 15px 20px; font-size: 16px; }
+
+.main-section { flex: 1; padding: 48px 0 72px; }
+.page-head { margin-bottom: 32px; }
+.page-head h1 { font-size: clamp(26px, 3.6vw, 38px); font-weight: 700; letter-spacing: -0.03em; margin-bottom: 8px; }
+.page-head p { color: var(--mute); font-size: 15.5px; }
+
+.checkout-grid {
+  display: grid;
+  grid-template-columns: 1.35fr 0.95fr;
+  gap: 28px;
+  align-items: start;
+}
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  padding: 28px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+}
+.panel-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+.panel-sub { font-size: 14px; color: var(--mute); margin-bottom: 20px; }
+
+.bundle-list { display: flex; flex-direction: column; gap: 14px; }
+.bundle-option {
+  border: 2px solid var(--line);
+  border-radius: 18px;
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  background: #FAFBFD;
+}
+.bundle-option:hover { border-color: #93C5FD; background: #fff; }
+.bundle-option.active {
+  border-color: var(--blue);
+  background: #F0F7FF;
+  box-shadow: 0 6px 20px rgba(0, 132, 255, 0.12);
+}
+.bundle-left { display: flex; align-items: center; gap: 14px; }
+.bundle-radio {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid #CBD5E1;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.bundle-option.active .bundle-radio {
+  border-color: var(--blue);
+  background: var(--blue);
+}
+.bundle-option.active .bundle-radio::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff;
+}
+.bundle-name { font-size: 17px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+.bundle-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #DBEAFE;
+  color: #1D4ED8;
+}
+.bundle-meta { font-size: 13.5px; color: var(--mute); margin-top: 3px; }
+.bundle-price { text-align: right; }
+.bundle-price .amount { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; }
+.bundle-price .per-card { font-size: 12px; color: var(--mute); }
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 14.5px;
+}
+.summary-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 0 20px;
+  font-size: 20px;
+  font-weight: 800;
+}
+.demo-notice {
+  background: #ECFDF5;
+  border: 1px solid #A7F3D0;
+  color: #065F46;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.45;
+  margin-bottom: 18px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.auth-notice {
+  background: #EFF6FF;
+  border: 1px solid #BFDBFE;
+  color: #1E40AF;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 13.5px;
+  margin-bottom: 18px;
+}
+
+@media (max-width: 860px) {
+  .checkout-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="top">
+  <nav class="nav" aria-label="Main Navigation">
+    <a href="{% url 'landing' %}" class="logo"><span class="mark"></span>BrandNest</a>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <a class="pill light" href="{% url 'enterprise_company' %}"><i class="bi bi-arrow-left"></i> Back</a>
+      {% if user.is_authenticated %}
+      <span style="font-size:13.5px;font-weight:600;color:#475569;">{{ user.username }}</span>
+      {% else %}
+      <a class="pill light" href="{% url 'login' %}?next={{ request.get_full_path|urlencode }}">Log In</a>
+      {% endif %}
+    </div>
+  </nav>
+</div>
+
+<main class="main-section">
+  <div class="wrap">
+    <div class="page-head">
+      <h1>Enterprise Business Card Bundles</h1>
+      <p>Select how many digital business cards your company needs (including your own card). Price updates automatically.</p>
+    </div>
+
+    <form method="post" action="{% url 'enterprise_checkout' %}" id="enterpriseCheckoutForm">
+      {% csrf_token %}
+      <input type="hidden" name="bundle_size" id="inputBundleSize" value="{{ selected_bundle|default:5 }}">
+      <input type="hidden" name="razorpay_test_payment_id" id="inputRzpTestPaymentId" value="">
+
+      <div class="checkout-grid">
+        <!-- Left: Bundle Selection -->
+        <div class="panel">
+          <div class="panel-title">1. Choose Your Business Card Bundle</div>
+          <div class="panel-sub">Start with 5 cards or scale up to 10 or 15 cards. You can always add more later.</div>
+
+          <div class="bundle-list">
+            {% for b in bundles %}
+            <div class="bundle-option {% if b.cards == selected_bundle %}active{% endif %}"
+                 data-cards="{{ b.cards }}"
+                 data-price="{{ b.price }}"
+                 data-per="{{ b.per_card }}"
+                 onclick="selectBundle(this)">
+              <div class="bundle-left">
+                <div class="bundle-radio"></div>
+                <div>
+                  <div class="bundle-name">
+                    {{ b.cards }} Business Cards
+                    {% if b.badge %}<span class="bundle-badge">{{ b.badge }}</span>{% endif %}
+                  </div>
+                  <div class="bundle-meta">Includes your own card + {{ b.team_cards }} team member cards</div>
+                </div>
+              </div>
+              <div class="bundle-price">
+                <div class="amount">₹{{ b.price }}</div>
+                <div class="per-card">₹{{ b.per_card }} / card</div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Right: Order Summary & Simulated Payment -->
+        <div class="panel">
+          <div class="panel-title">2. Order Summary &amp; Checkout</div>
+          <div class="panel-sub">Instant activation for your Enterprise Card Workspace</div>
+
+          {% if company_name %}
+          <div class="summary-row">
+            <span>Company</span>
+            <strong>{{ company_name }}</strong>
+          </div>
+          {% endif %}
+          <div class="summary-row">
+            <span>Selected Plan</span>
+            <strong id="summaryPlanName">Enterprise ({{ selected_bundle }} Cards)</strong>
+          </div>
+          <div class="summary-row">
+            <span>Includes</span>
+            <span id="summaryIncludes">You + {{ selected_team_cards }} team cards</span>
+          </div>
+          <div class="summary-row">
+            <span>Rate per card</span>
+            <span id="summaryPerCard">₹{{ selected_per_card }}</span>
+          </div>
+          <div class="summary-total">
+            <span>Total Due</span>
+            <span id="summaryTotalPrice">₹{{ selected_price }}</span>
+          </div>
+
+          <div class="demo-notice">
+            <i class="bi bi-shield-check" style="font-size:18px;flex-shrink:0;"></i>
+            <div>
+              <strong>Preview / Simulated Payment Mode:</strong> No real payment gateway is charged yet. Clicking below activates your bundle immediately so you can test the full workflow.
+            </div>
+          </div>
+
+          {% if not user.is_authenticated %}
+          <div class="auth-notice">
+            <i class="bi bi-person-lock me-1"></i>
+            You will be asked to <strong>Log In or Sign Up</strong> so this bundle is saved to your account.
+          </div>
+          {% endif %}
+
+          <button type="button" class="pill blue full" id="btnCompleteEnterprisePay" onclick="openRazorpayTestModal()">
+            <i class="bi bi-credit-card me-1"></i>
+            <span id="btnPayLabel">Pay ₹{{ selected_price }} &amp; Activate {{ selected_bundle }} Cards</span>
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</main>
+
+<!-- Razorpay Test Mode Payment Gateway Modal (Simulated for Testing) -->
+<div id="rzpTestBackdrop" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.68);backdrop-filter:blur(4px);z-index:9999;align-items:center;justify-content:center;padding:16px;">
+  <div style="width:100%;max-width:410px;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.35);font-family:var(--f);">
+    <!-- Razorpay Header -->
+    <div style="background:linear-gradient(135deg,#072654 0%,#0D3B82 100%);color:#fff;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="width:40px;height:40px;border-radius:10px;background:#3395FF;display:grid;place-items:center;font-weight:800;font-size:18px;color:#fff;">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="#fff"><path d="M22.436 0l-11.91 14.184h6.05L6.037 24l5.362-9.816H5.35L17.26 0z"/></svg>
+        </div>
+        <div>
+          <div style="font-size:15px;font-weight:700;display:flex;align-items:center;gap:7px;">
+            BrandNest SaaS
+            <span style="font-size:10px;font-weight:800;background:#F59E0B;color:#111827;padding:2px 7px;border-radius:4px;letter-spacing:0.04em;">TEST MODE</span>
+          </div>
+          <div id="rzpOrderDesc" style="font-size:12px;color:#CBD5E1;margin-top:2px;">Enterprise ({{ selected_bundle }} Cards)</div>
+        </div>
+      </div>
+      <button type="button" onclick="closeRazorpayTestModal()" style="background:none;border:0;color:#CBD5E1;font-size:22px;cursor:pointer;line-height:1;">&times;</button>
+    </div>
+
+    <!-- Amount Bar -->
+    <div style="background:#F8FAFC;padding:12px 20px;border-bottom:1px solid #E2E8F0;display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:12.5px;color:#64748B;font-weight:600;">Payable Amount (Test)</span>
+      <span id="rzpAmountLabel" style="font-size:20px;font-weight:800;color:#0F172A;">₹{{ selected_price }}</span>
+    </div>
+
+    <!-- Payment Method Tabs -->
+    <div id="rzpBodyContent" style="padding:18px 20px;">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;">
+        <button type="button" class="rzp-tab active" data-method="card" onclick="switchRzpMethod('card', this)" style="padding:9px 6px;border-radius:10px;border:1.5px solid #0084FF;background:#EFF6FF;color:#1D4ED8;font:600 12.5px var(--f);cursor:pointer;">
+          <i class="bi bi-credit-card"></i> Card
+        </button>
+        <button type="button" class="rzp-tab" data-method="upi" onclick="switchRzpMethod('upi', this)" style="padding:9px 6px;border-radius:10px;border:1.5px solid #E2E8F0;background:#fff;color:#475569;font:600 12.5px var(--f);cursor:pointer;">
+          <i class="bi bi-qr-code"></i> UPI
+        </button>
+        <button type="button" class="rzp-tab" data-method="netbanking" onclick="switchRzpMethod('netbanking', this)" style="padding:9px 6px;border-radius:10px;border:1.5px solid #E2E8F0;background:#fff;color:#475569;font:600 12.5px var(--f);cursor:pointer;">
+          <i class="bi bi-bank"></i> Bank
+        </button>
+      </div>
+
+      <!-- Card Test Pane -->
+      <div id="rzpPaneCard">
+        <div style="margin-bottom:10px;">
+          <label style="display:block;font-size:11.5px;font-weight:600;color:#64748B;margin-bottom:4px;">Test Card Number</label>
+          <input type="text" value="4111  1111  1111  1111" readonly style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid #CBD5E1;background:#F8FAFC;font-family:monospace;font-size:14px;">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+          <div>
+            <label style="display:block;font-size:11.5px;font-weight:600;color:#64748B;margin-bottom:4px;">Expiry</label>
+            <input type="text" value="12 / 29" readonly style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid #CBD5E1;background:#F8FAFC;font-size:13.5px;">
+          </div>
+          <div>
+            <label style="display:block;font-size:11.5px;font-weight:600;color:#64748B;margin-bottom:4px;">CVV</label>
+            <input type="text" value="123" readonly style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid #CBD5E1;background:#F8FAFC;font-size:13.5px;">
+          </div>
+        </div>
+      </div>
+
+      <!-- UPI Test Pane -->
+      <div id="rzpPaneUpi" style="display:none;margin-bottom:14px;">
+        <label style="display:block;font-size:11.5px;font-weight:600;color:#64748B;margin-bottom:4px;">Razorpay Test UPI ID</label>
+        <input type="text" value="success@razorpay" readonly style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid #CBD5E1;background:#F8FAFC;font-family:monospace;font-size:14px;">
+        <div style="font-size:11.5px;color:#10B981;margin-top:5px;"><i class="bi bi-check-circle-fill"></i> Pre-filled test VPA for instant approval</div>
+      </div>
+
+      <!-- Netbanking Test Pane -->
+      <div id="rzpPaneNetbanking" style="display:none;margin-bottom:14px;">
+        <label style="display:block;font-size:11.5px;font-weight:600;color:#64748B;margin-bottom:4px;">Select Test Bank</label>
+        <select style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid #CBD5E1;background:#F8FAFC;font-size:13.5px;">
+          <option>HDFC Bank (Test)</option>
+          <option>ICICI Bank (Test)</option>
+          <option>State Bank of India (Test)</option>
+          <option>Axis Bank (Test)</option>
+        </select>
+      </div>
+
+      <button type="button" id="btnRzpConfirmPay" onclick="simulateRazorpaySuccess()" style="width:100%;padding:13px;border:0;border-radius:11px;background:#0D6EFD;color:#fff;font:700 15px var(--f);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+        <i class="bi bi-lock-fill"></i> <span id="rzpConfirmBtnText">Pay ₹{{ selected_price }} Now</span>
+      </button>
+
+      <div style="text-align:center;margin-top:12px;font-size:11.5px;color:#94A3B8;display:flex;align-items:center;justify-content:center;gap:6px;">
+        <i class="bi bi-shield-lock-fill" style="color:#3395FF;"></i> Secured by Razorpay (Simulated Test Gateway)
+      </div>
+    </div>
+
+    <!-- Processing / Success State -->
+    <div id="rzpStatusState" style="display:none;padding:34px 20px;text-align:center;">
+      <div id="rzpSpinner" style="width:44px;height:44px;border:4px solid #E2E8F0;border-top-color:#0D6EFD;border-radius:50%;margin:0 auto 14px;animation:rzpSpin 0.8s linear infinite;"></div>
+      <div id="rzpSuccessIcon" style="display:none;width:54px;height:54px;border-radius:50%;background:#DCFCE7;color:#16A34A;font-size:28px;margin:0 auto 12px;place-items:center;"><i class="bi bi-check-lg"></i></div>
+      <div id="rzpStatusTitle" style="font-size:17px;font-weight:700;color:#0F172A;margin-bottom:4px;">Processing Test Payment...</div>
+      <div id="rzpStatusSub" style="font-size:13px;color:#64748B;">Please wait while Razorpay Test Mode confirms.</div>
+    </div>
+  </div>
+</div>
+<style>@keyframes rzpSpin { to { transform: rotate(360deg); } }</style>
+
+<script>
+function selectBundle(el) {
+  document.querySelectorAll('.bundle-option').forEach(opt => opt.classList.remove('active'));
+  el.classList.add('active');
+
+  const cards = parseInt(el.dataset.cards, 10);
+  const price = el.dataset.price;
+  const per = el.dataset.per;
+
+  document.getElementById('inputBundleSize').value = cards;
+  document.getElementById('summaryPlanName').textContent = `Enterprise (${cards} Cards)`;
+  document.getElementById('summaryIncludes').textContent = `You + ${cards - 1} team cards`;
+  document.getElementById('summaryPerCard').textContent = `₹${per}`;
+  document.getElementById('summaryTotalPrice').textContent = `₹${price}`;
+  document.getElementById('btnPayLabel').textContent = `Pay ₹${price} & Activate ${cards} Cards`;
+  const rzpAmt = document.getElementById('rzpAmountLabel');
+  const rzpDesc = document.getElementById('rzpOrderDesc');
+  const rzpBtn = document.getElementById('rzpConfirmBtnText');
+  if (rzpAmt) rzpAmt.textContent = `₹${price}`;
+  if (rzpDesc) rzpDesc.textContent = `Enterprise (${cards} Cards)`;
+  if (rzpBtn) rzpBtn.textContent = `Pay ₹${price} Now`;
+}
+
+function openRazorpayTestModal() {
+  document.getElementById('rzpBodyContent').style.display = 'block';
+  document.getElementById('rzpStatusState').style.display = 'none';
+  document.getElementById('rzpSpinner').style.display = 'block';
+  document.getElementById('rzpSuccessIcon').style.display = 'none';
+  document.getElementById('rzpStatusTitle').textContent = 'Processing Test Payment...';
+  document.getElementById('rzpStatusSub').textContent = 'Please wait while Razorpay Test Mode confirms.';
+  document.getElementById('rzpTestBackdrop').style.display = 'flex';
+}
+
+function closeRazorpayTestModal() {
+  document.getElementById('rzpTestBackdrop').style.display = 'none';
+}
+
+function switchRzpMethod(method, btn) {
+  document.querySelectorAll('.rzp-tab').forEach(t => {
+    t.style.borderColor = '#E2E8F0';
+    t.style.background = '#fff';
+    t.style.color = '#475569';
+  });
+  btn.style.borderColor = '#0084FF';
+  btn.style.background = '#EFF6FF';
+  btn.style.color = '#1D4ED8';
+
+  document.getElementById('rzpPaneCard').style.display = method === 'card' ? 'block' : 'none';
+  document.getElementById('rzpPaneUpi').style.display = method === 'upi' ? 'block' : 'none';
+  document.getElementById('rzpPaneNetbanking').style.display = method === 'netbanking' ? 'block' : 'none';
+}
+
+function simulateRazorpaySuccess() {
+  document.getElementById('rzpBodyContent').style.display = 'none';
+  document.getElementById('rzpStatusState').style.display = 'block';
+  const testId = 'pay_test_' + Math.random().toString(36).substring(2, 10).toUpperCase();
+  document.getElementById('inputRzpTestPaymentId').value = testId;
+
+  setTimeout(() => {
+    document.getElementById('rzpSpinner').style.display = 'none';
+    document.getElementById('rzpSuccessIcon').style.display = 'grid';
+    document.getElementById('rzpStatusTitle').textContent = 'Payment Successful!';
+    document.getElementById('rzpStatusSub').textContent = `Razorpay Test ID: ${testId}`;
+    setTimeout(() => {
+      document.getElementById('enterpriseCheckoutForm').submit();
+    }, 650);
+  }, 750);
+}
+</script>
+</body>
+</html>
+

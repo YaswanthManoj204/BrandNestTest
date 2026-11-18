@@ -1,0 +1,570 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Enterprise Super Admin{% endblock %} - BrandNest</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  
+  <style>
+    :root {
+      --primary-indigo: #4F46E5;
+      --primary-indigo-dark: #3730A3;
+      --primary-indigo-light: #EEF2FF;
+      --accent-emerald: #10B981;
+      --sidebar-bg: #0F172A;
+      --sidebar-active: #1E293B;
+      --sidebar-border: rgba(255, 255, 255, 0.08);
+      --canvas-bg: #F8FAFC;
+      --card-bg: #FFFFFF;
+      --text-main: #0F172A;
+      --text-muted: #64748B;
+      --border-color: #E2E8F0;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    body {
+      background-color: var(--canvas-bg);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+    }
+
+    code, .mono-font {
+      font-family: 'JetBrains Mono', monospace !important;
+    }
+
+    /* Left Sidebar */
+    .ent-sidebar {
+      width: 270px;
+      min-width: 270px;
+      background-color: var(--sidebar-bg);
+      color: #FFFFFF;
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      z-index: 1040;
+      overflow-y: auto;
+      border-right: 1px solid var(--sidebar-border);
+      transition: transform 0.25s ease;
+    }
+
+    .ent-brand-header {
+      padding: 20px 20px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid var(--sidebar-border);
+    }
+
+    .ent-brand-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #4F46E5 0%, #10B981 100%);
+      color: #FFFFFF;
+      display: grid;
+      place-items: center;
+      font-size: 20px;
+      box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4);
+    }
+
+    .ent-brand-title {
+      font-size: 17px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #FFFFFF;
+      line-height: 1.2;
+    }
+
+    .ent-brand-title span {
+      color: var(--accent-emerald);
+    }
+
+    .ent-badge-dev {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      padding: 2px 7px;
+      border-radius: 6px;
+      background: rgba(79, 70, 229, 0.3);
+      color: #A5B4FC;
+      border: 1px solid rgba(165, 180, 252, 0.3);
+    }
+
+    /* Switch to Personal Admin Panel Banner */
+    .switch-panel-card {
+      margin: 14px 14px 6px;
+      padding: 12px 14px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px dashed rgba(255, 255, 255, 0.16);
+      border-radius: 12px;
+    }
+
+    .btn-switch-personal {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: #10B981;
+      color: #FFFFFF;
+      padding: 9px 12px;
+      border-radius: 10px;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 12.5px;
+      transition: all 0.2s;
+      box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+    }
+
+    .btn-switch-personal:hover {
+      background: #059669;
+      color: #FFFFFF;
+      transform: translateY(-1px);
+    }
+
+    /* Sidebar Navigation Links */
+    .sidebar-section {
+      padding: 16px 14px 6px;
+    }
+
+    .sidebar-section-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #64748B;
+      padding: 0 10px 8px;
+      display: block;
+    }
+
+    .sidebar-nav-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .sidebar-nav-link {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      color: #94A3B8;
+      text-decoration: none;
+      font-size: 13.5px;
+      font-weight: 600;
+      transition: all 0.15s ease;
+    }
+
+    .sidebar-nav-link:hover {
+      background-color: rgba(255, 255, 255, 0.05);
+      color: #FFFFFF;
+    }
+
+    .sidebar-nav-link.active {
+      background-color: var(--primary-indigo);
+      color: #FFFFFF;
+      font-weight: 700;
+      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35);
+    }
+
+    .sidebar-nav-link i {
+      font-size: 16px;
+      width: 20px;
+      text-align: center;
+    }
+
+    /* Main Container */
+    .ent-main {
+      margin-left: 270px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 100vh;
+    }
+
+    /* Topbar */
+    .ent-topbar {
+      height: 68px;
+      background-color: #FFFFFF;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      position: sticky;
+      top: 0;
+      z-index: 1020;
+    }
+
+    .ent-topbar-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #0F172A;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .ent-topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .btn-topbar-personal {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #F1F5F9;
+      border: 1px solid #CBD5E1;
+      color: #334155;
+      padding: 8px 14px;
+      border-radius: 10px;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 700;
+      transition: all 0.2s;
+    }
+
+    .btn-topbar-personal:hover {
+      background: #E2E8F0;
+      color: #0F172A;
+    }
+
+    .btn-ent-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--primary-indigo);
+      color: #FFFFFF;
+      padding: 8px 16px;
+      border-radius: 10px;
+      border: none;
+      text-decoration: none;
+      font-size: 13.5px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(79, 70, 229, 0.25);
+      transition: all 0.2s;
+    }
+
+    .btn-ent-primary:hover {
+      background: var(--primary-indigo-dark);
+      color: #FFFFFF;
+      transform: translateY(-1px);
+    }
+
+    /* Page Content */
+    .ent-content {
+      padding: 30px 32px 60px;
+      flex: 1;
+    }
+
+    /* Metric Card */
+    .metric-card {
+      background: #FFFFFF;
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 22px 24px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+      height: 100%;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .metric-card:hover {
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+    }
+
+    .metric-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .metric-title {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .metric-icon-wrap {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      font-size: 18px;
+    }
+
+    .metric-icon-indigo { background: #EEF2FF; color: #4F46E5; }
+    .metric-icon-emerald { background: #ECFDF5; color: #10B981; }
+    .metric-icon-amber { background: #FEF3C7; color: #D97706; }
+    .metric-icon-blue { background: #E0F2FE; color: #0284C7; }
+
+    .metric-value {
+      font-size: 30px;
+      font-weight: 800;
+      color: #0F172A;
+      line-height: 1.1;
+      margin-bottom: 4px;
+    }
+
+    .metric-hint {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Enterprise Table Styling */
+    .ent-table-card {
+      background: #FFFFFF;
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    }
+
+    .ent-table-header {
+      padding: 18px 22px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: gap;
+      gap: 12px;
+    }
+
+    .ent-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+      margin-bottom: 0;
+    }
+
+    .ent-table th {
+      background: #F8FAFC;
+      color: #64748B;
+      font-weight: 700;
+      font-size: 11.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .ent-table td {
+      padding: 16px 20px;
+      border-bottom: 1px solid #F1F5F9;
+      vertical-align: middle;
+      color: #334155;
+    }
+
+    .ent-table tbody tr:hover {
+      background-color: #F8FAFC;
+    }
+
+    /* Badges */
+    .badge-ent-active {
+      background: #DCFCE7;
+      color: #15803D;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 99px;
+    }
+
+    .badge-ent-suspended {
+      background: #FEE2E2;
+      color: #B91C1C;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 99px;
+    }
+
+    .badge-tier-starter {
+      background: #E0F2FE;
+      color: #0369A1;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 99px;
+    }
+
+    .badge-tier-popular {
+      background: #EDE9FE;
+      color: #6D28D9;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 99px;
+    }
+
+    .badge-tier-enterprise {
+      background: #FEF3C7;
+      color: #B45309;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 99px;
+    }
+
+    @media (max-width: 992px) {
+      .ent-sidebar { transform: translateX(-100%); }
+      .ent-main { margin-left: 0; }
+    }
+  </style>
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+  <!-- Left Sidebar -->
+  <aside class="ent-sidebar" id="entSidebar">
+    <!-- Brand Header -->
+    <div class="ent-brand-header">
+      <div class="ent-brand-icon">
+        <i class="bi bi-buildings"></i>
+      </div>
+      <div>
+        <div class="ent-brand-title">Brand<span>Nest</span></div>
+        <span class="ent-badge-dev"><i class="bi bi-cpu-fill me-1"></i> Enterprise Admin</span>
+      </div>
+    </div>
+
+    <!-- Quick Switch to Personal Workspace Panel -->
+    <div class="switch-panel-card">
+      <small style="color:#94A3B8;font-size:11px;display:block;margin-bottom:6px;font-weight:600;">Personal Workspace:</small>
+      <a href="{% url 'dashboard_overview' %}" class="btn-switch-personal">
+        <i class="bi bi-person-vcard"></i>
+        <span>Personal Admin Panel &rarr;</span>
+      </a>
+    </div>
+
+    <!-- Section 1: Enterprise Suite -->
+    <div class="sidebar-section">
+      <span class="sidebar-section-title">Enterprise Suite</span>
+      <ul class="sidebar-nav-list">
+        <li>
+          <a href="{% url 'enterprise_admin_overview' %}" class="sidebar-nav-link {% if active_ent_menu == 'overview' %}active{% endif %}">
+            <i class="bi bi-grid-1x2"></i> Overview
+          </a>
+        </li>
+        <li>
+          <a href="{% url 'enterprise_admin_companies' %}" class="sidebar-nav-link {% if active_ent_menu == 'companies' %}active{% endif %}">
+            <i class="bi bi-building"></i> Companies & Quotas
+          </a>
+        </li>
+        <li>
+          <a href="{% url 'enterprise_admin_cards' %}" class="sidebar-nav-link {% if active_ent_menu == 'cards' %}active{% endif %}">
+            <i class="bi bi-person-badge"></i> Employee Cards
+          </a>
+        </li>
+        <li>
+          <a href="{% url 'enterprise_admin_teams' %}" class="sidebar-nav-link {% if active_ent_menu == 'teams' %}active{% endif %}">
+            <i class="bi bi-diagram-3"></i> Teams & Departments
+          </a>
+        </li>
+        <li>
+          <a href="{% url 'enterprise_admin_leads' %}" class="sidebar-nav-link {% if active_ent_menu == 'leads' %}active{% endif %}">
+            <i class="bi bi-funnel"></i> Enterprise Leads
+          </a>
+        </li>
+        <li>
+          <a href="{% url 'enterprise_admin_billing' %}" class="sidebar-nav-link {% if active_ent_menu == 'billing' %}active{% endif %}">
+            <i class="bi bi-receipt"></i> Bundles & Revenue
+          </a>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Sidebar Bottom User Info -->
+    <div class="mt-auto p-3" style="border-top:1px solid var(--sidebar-border);">
+      <div class="d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-2">
+          <div style="width:34px;height:34px;border-radius:50%;background:#4F46E5;color:#FFFFFF;display:grid;place-items:center;font-weight:700;font-size:13px;">
+            {{ request.user.username|slice:":1"|upper }}
+          </div>
+          <div>
+            <div style="font-size:13px;font-weight:700;color:#FFFFFF;">{{ request.user.username }}</div>
+            <small style="color:#94A3B8;font-size:11px;">Super Administrator</small>
+          </div>
+        </div>
+        <a href="{% url 'admin_logout' %}" class="text-danger" title="Sign Out" style="font-size:17px;">
+          <i class="bi bi-box-arrow-right"></i>
+        </a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content Area -->
+  <div class="ent-main">
+    <!-- Topbar -->
+    <header class="ent-topbar">
+      <div class="ent-topbar-title">
+        <span class="badge bg-dark text-white rounded-pill px-2.5 py-1" style="font-size:11px;letter-spacing:0.04em;">ENTERPRISE SUPER ADMIN</span>
+        <span class="text-secondary d-none d-md-inline" style="font-size:13px;">• Corporate Management</span>
+      </div>
+
+      <div class="ent-topbar-actions">
+        <!-- Switch to Personal Admin Button -->
+        <a href="{% url 'dashboard_overview' %}" class="btn-topbar-personal">
+          <i class="bi bi-person-vcard text-success"></i>
+          <span>Personal Admin Panel &rarr;</span>
+        </a>
+
+        <!-- Public Landing Link -->
+        <a href="/" target="_blank" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1.5 fw-semibold d-none d-sm-inline-flex align-items-center gap-1">
+          <i class="bi bi-globe"></i> Public Site
+        </a>
+
+        <!-- Sign Out -->
+        <a href="{% url 'admin_logout' %}" class="btn btn-sm btn-outline-danger rounded-pill px-3 py-1.5 fw-bold">
+          <i class="bi bi-box-arrow-right me-1"></i> Sign Out
+        </a>
+      </div>
+    </header>
+
+    <!-- Page Content Injection -->
+    <main class="ent-content">
+      <!-- Flash Alert Messages -->
+      {% if messages %}
+        {% for message in messages %}
+          <div class="alert alert-{% if message.tags == 'error' %}danger{% elif message.tags == 'success' %}success{% else %}info{% endif %} alert-dismissible fade show d-flex align-items-center gap-2 mb-4" role="alert" style="border-radius:12px;font-size:13.5px;">
+            <i class="bi {% if message.tags == 'error' %}bi-exclamation-triangle-fill{% elif message.tags == 'success' %}bi-check-circle-fill{% else %}bi-info-circle-fill{% endif %}"></i>
+            <div>{{ message }}</div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+
+      {% block enterprise_content %}{% endblock %}
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>
+

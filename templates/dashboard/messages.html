@@ -1,0 +1,222 @@
+{% extends "dashboard/base_dashboard.html" %}
+
+{% block title %}Messages{% endblock %}
+
+{% block dashboard_content %}
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+  <div class="d-flex align-items-center gap-2">
+    <h1 style="font-size:26px;font-weight:800;color:#0F172A;margin:0;">Messages</h1>
+    <span class="badge-status-active"><span style="width:6px;height:6px;background:#10B981;border-radius:50%;display:inline-block;"></span> On</span>
+  </div>
+
+  <div class="d-flex align-items-center gap-2">
+    <button type="button" class="btn-dash-outline" onclick="exportMessages()">
+      <i class="bi bi-download"></i> Export
+    </button>
+    <a href="{% url 'dashboard_settings' %}" class="btn-dash-outline">
+      <i class="bi bi-gear"></i> Settings
+    </a>
+  </div>
+</div>
+
+<!-- Two-Column Inbox Container -->
+<div class="card border-0 shadow-sm overflow-hidden" style="border-radius:18px;border:1px solid #E2E8F0 !important;min-height:640px;background:#FFFFFF;">
+  <div class="row g-0" style="min-height:640px;">
+    <!-- Left Column: Conversation List -->
+    <div class="col-md-5 col-lg-4 border-end d-flex flex-column" style="background:#FAFAFA;">
+      <!-- Search Input -->
+      <div class="p-3 border-bottom bg-white">
+        <div class="position-relative">
+          <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size:13px;"></i>
+          <input type="text" id="msgSearchInput" class="form-control form-control-sm ps-5" placeholder="Search name, email or message" style="border-radius:10px;font-size:13px;" onkeyup="filterMessagesList()">
+        </div>
+      </div>
+
+      <!-- Segmented Status Pills -->
+      <div class="p-2 border-bottom d-flex gap-1 bg-white">
+        <button type="button" class="btn btn-sm btn-dark rounded-pill px-3 py-1 fw-semibold active-pill" id="filterInbox" onclick="setMsgFilter('all', this)" style="font-size:12px;">Inbox</button>
+        <button type="button" class="btn btn-sm btn-light border rounded-pill px-3 py-1 fw-semibold" id="filterUnread" onclick="setMsgFilter('unread', this)" style="font-size:12px;">Unread</button>
+        <button type="button" class="btn btn-sm btn-light border rounded-pill px-3 py-1 fw-semibold" id="filterArchived" onclick="setMsgFilter('archived', this)" style="font-size:12px;">Archived</button>
+        <button type="button" class="btn btn-sm btn-light border rounded-pill px-3 py-1 fw-semibold" id="filterSpam" onclick="setMsgFilter('spam', this)" style="font-size:12px;">Spam</button>
+      </div>
+
+      <!-- Filter Dropdowns -->
+      <div class="px-3 py-2 border-bottom d-flex align-items-center justify-content-between" style="background:#F8FAFC;">
+        <select class="form-select form-select-sm border-0 bg-transparent text-secondary p-0 fw-semibold" style="width:auto;font-size:12px;">
+          <option>All ratings</option>
+          <option>5 Stars</option>
+          <option>4+ Stars</option>
+        </select>
+        <select class="form-select form-select-sm border-0 bg-transparent text-secondary p-0 fw-semibold" style="width:auto;font-size:12px;">
+          <option>Newest first</option>
+          <option>Oldest first</option>
+        </select>
+      </div>
+
+      <!-- Message Items List -->
+      <div class="overflow-y-auto flex-fill" id="messagesListContainer" style="max-height:500px;">
+        {% for msg in messages_list %}
+          <div class="p-3 border-bottom conversation-item hover-bg {% if forloop.first %}selected-conv{% endif %}" style="cursor:pointer;background:#FFFFFF;transition:background 0.15s ease;" data-name="{{ msg.name|lower }}" data-email="{{ msg.email|lower }}" data-msg="{{ msg.message|lower }}" data-unread="{% if not msg.is_read %}1{% else %}0{% endif %}" onclick="selectConversation('{{ msg.id }}', '{{ msg.name|escapejs }}', '{{ msg.email|escapejs }}', '{{ msg.phone|escapejs }}', '{{ msg.card.business_name|default:''|escapejs }}', '{{ msg.created_at|date:"jS M, Y H:i" }}', '{{ msg.message|escapejs }}')">
+            <div class="d-flex align-items-start gap-2">
+              <div style="width:36px;height:36px;border-radius:50%;background:#E2E8F0;color:#475569;display:grid;place-items:center;font-weight:700;font-size:13px;flex-shrink:0;">
+                {{ msg.name|slice:":1"|upper }}
+              </div>
+              <div class="flex-fill" style="min-width:0;">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                  <strong style="font-size:13.5px;color:#0F172A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ msg.name }}</strong>
+                  <small style="color:#94A3B8;font-size:11px;">{{ msg.created_at|date:"M j, Y" }}</small>
+                </div>
+                <div style="font-size:12.5px;color:#64748B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:6px;">
+                  {{ msg.message|default:"(No message body)" }}
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                  <span style="font-size:11px;font-weight:700;color:#0284C7;display:inline-flex;align-items:center;gap:4px;">
+                    <span style="width:6px;height:6px;background:#0EA5E9;border-radius:50%;display:inline-block;"></span> New Lead
+                  </span>
+                  {% if msg.card %}
+                    <small style="color:#94A3B8;font-size:11px;">via {{ msg.card.business_name }}</small>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+        {% empty %}
+          <div class="text-center py-5 text-muted" style="font-size:13px;">
+            <i class="bi bi-chat-left-text fs-2 d-block mb-2 text-secondary"></i>
+            No messages received yet.
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Right Column: Conversation Detail View -->
+    <div class="col-md-7 col-lg-8 d-flex flex-column" id="conversationDetailPane" style="background:#FFFFFF;">
+      {% if messages_list %}
+        {% with first_msg=messages_list|first %}
+          <div id="threadHeader" class="p-4 border-bottom d-flex align-items-center justify-content-between">
+            <div class="d-flex align-items-center gap-3">
+              <div id="detailAvatar" style="width:44px;height:44px;border-radius:50%;background:#D1FAE5;color:#059669;display:grid;place-items:center;font-weight:800;font-size:16px;">
+                {{ first_msg.name|slice:":1"|upper }}
+              </div>
+              <div>
+                <h5 id="detailName" style="font-size:16px;font-weight:700;color:#0F172A;margin:0;">{{ first_msg.name }}</h5>
+                <small id="detailMeta" style="color:#64748B;font-size:12.5px;">{{ first_msg.email }} &bull; {{ first_msg.phone }}</small>
+              </div>
+            </div>
+
+            <div class="d-flex align-items-center gap-2">
+              {% if first_msg.email %}
+                <a id="btnReplyEmail" href="mailto:{{ first_msg.email }}" class="btn-dash-outline" style="font-size:12.5px;padding:6px 14px;">
+                  <i class="bi bi-envelope"></i> Email
+                </a>
+              {% endif %}
+              {% if first_msg.phone %}
+                <a id="btnReplyWhatsapp" href="https://wa.me/{{ first_msg.phone|cut:' '|cut:'+' }}" target="_blank" class="btn-dash-primary" style="font-size:12.5px;padding:6px 14px;background:#25D366;">
+                  <i class="bi bi-whatsapp"></i> WhatsApp
+                </a>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="p-4 flex-fill overflow-y-auto">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+              <span class="badge bg-light text-secondary border px-2 py-1" id="detailCardBadge" style="font-size:12px;">
+                Card: {{ first_msg.card.business_name|default:"General Inquiry" }}
+              </span>
+              <small id="detailDate" class="text-muted" style="font-size:12px;">{{ first_msg.created_at|date:"jS M, Y H:i" }}</small>
+            </div>
+
+            <div class="p-3 rounded-3" style="background:#F8FAFC;border:1px solid #E2E8F0;">
+              <h6 class="text-secondary small fw-bold mb-2">Message Content:</h6>
+              <p id="detailBody" style="font-size:14px;color:#1E293B;line-height:1.6;margin:0;white-space:pre-wrap;">{{ first_msg.message }}</p>
+            </div>
+          </div>
+        {% endwith %}
+      {% else %}
+        <div class="d-flex flex-column align-items-center justify-content-center flex-fill p-5 text-center">
+          <div style="width:64px;height:64px;border-radius:16px;background:#F0FDF4;color:#10B981;display:grid;place-items:center;font-size:28px;margin-bottom:16px;">
+            <i class="bi bi-chat-square-text"></i>
+          </div>
+          <h4 style="font-size:18px;font-weight:700;color:#0F172A;margin:0 0 6px;">Select a conversation</h4>
+          <p style="font-size:13px;color:#64748B;max-width:320px;margin:0;">Pick a conversation from the list to read and reply.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function selectConversation(id, name, email, phone, cardName, dateStr, messageBody) {
+    document.getElementById('detailAvatar').textContent = name ? name.charAt(0).toUpperCase() : '?';
+    document.getElementById('detailName').textContent = name;
+    document.getElementById('detailMeta').textContent = (email || '') + (email && phone ? ' • ' : '') + (phone || '');
+    document.getElementById('detailDate').textContent = dateStr;
+    document.getElementById('detailCardBadge').textContent = cardName ? 'Card: ' + cardName : 'General Inquiry';
+    document.getElementById('detailBody').textContent = messageBody;
+
+    const emailBtn = document.getElementById('btnReplyEmail');
+    if (emailBtn) {
+      if (email) {
+        emailBtn.href = 'mailto:' + email;
+        emailBtn.style.display = 'inline-flex';
+      } else {
+        emailBtn.style.display = 'none';
+      }
+    }
+
+    const waBtn = document.getElementById('btnReplyWhatsapp');
+    if (waBtn) {
+      if (phone) {
+        const cleanPhone = phone.replace(/[^0-9]/g, '');
+        waBtn.href = 'https://wa.me/' + cleanPhone;
+        waBtn.style.display = 'inline-flex';
+      } else {
+        waBtn.style.display = 'none';
+      }
+    }
+  }
+
+  function filterMessagesList() {
+    const input = document.getElementById('msgSearchInput');
+    const filter = input.value.toLowerCase();
+    const items = document.querySelectorAll('.conversation-item');
+    items.forEach(item => {
+      const name = item.dataset.name || '';
+      const email = item.dataset.email || '';
+      const msg = item.dataset.msg || '';
+      if (name.includes(filter) || email.includes(filter) || msg.includes(filter)) {
+        item.style.display = '';
+      } else {
+        item.style.display = 'none';
+      }
+    });
+  }
+
+  function setMsgFilter(type, btn) {
+    document.querySelectorAll('.active-pill').forEach(b => {
+      b.classList.remove('btn-dark', 'active-pill');
+      b.classList.add('btn-light', 'border');
+    });
+    btn.classList.remove('btn-light', 'border');
+    btn.classList.add('btn-dark', 'active-pill');
+
+    const items = document.querySelectorAll('.conversation-item');
+    items.forEach(item => {
+      if (type === 'all') {
+        item.style.display = '';
+      } else if (type === 'unread') {
+        item.style.display = (item.dataset.unread === '1') ? '' : 'none';
+      } else {
+        item.style.display = '';
+      }
+    });
+  }
+
+  function exportMessages() {
+    window.location.href = '{% url "dashboard_leads_export" %}';
+  }
+</script>
+{% endblock %}
+

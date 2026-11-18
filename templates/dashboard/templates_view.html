@@ -1,0 +1,48 @@
+{% extends "dashboard/base_dashboard.html" %}
+
+{% block title %}Design Templates{% endblock %}
+
+{% block dashboard_content %}
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+  <div>
+    <h1 style="font-size:26px;font-weight:800;color:#0F172A;margin:0 0 4px;">Templates</h1>
+    <p style="font-size:13.5px;color:#64748B;margin:0;">Pre-designed, industry-tailored layout presets for digital cards and websites.</p>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-md-6 col-lg-4">
+    <div class="card border-0 shadow-sm p-4 rounded-4 h-100" style="background:#FFFFFF;border:1px solid #E2E8F0 !important;">
+      <div style="height:140px;background:linear-gradient(135deg, #0EA5E9 0%, #10B981 100%);border-radius:14px;margin-bottom:16px;display:grid;place-items:center;color:#FFFFFF;font-size:32px;">
+        <i class="bi bi-person-badge"></i>
+      </div>
+      <h5 class="fw-bold text-dark mb-1">Executive Hero</h5>
+      <p class="text-secondary small mb-3">Modern corporate profile with high-res cover header, direct action tiles, and portfolio carousel.</p>
+      <a href="{% url 'card_builder' %}" class="btn-dash-primary w-100 justify-content-center">Use Template</a>
+    </div>
+  </div>
+
+  <div class="col-md-6 col-lg-4">
+    <div class="card border-0 shadow-sm p-4 rounded-4 h-100" style="background:#FFFFFF;border:1px solid #E2E8F0 !important;">
+      <div style="height:140px;background:linear-gradient(135deg, #6366F1 0%, #EC4899 100%);border-radius:14px;margin-bottom:16px;display:grid;place-items:center;color:#FFFFFF;font-size:32px;">
+        <i class="bi bi-grid-1x2"></i>
+      </div>
+      <h5 class="fw-bold text-dark mb-1">Dual Brand Showcase</h5>
+      <p class="text-secondary small mb-3">Split dual-branding layout optimized for agencies, partner networks, and product manufacturers.</p>
+      <a href="{% url 'card_builder' %}" class="btn-dash-primary w-100 justify-content-center">Use Template</a>
+    </div>
+  </div>
+
+  <div class="col-md-6 col-lg-4">
+    <div class="card border-0 shadow-sm p-4 rounded-4 h-100" style="background:#FFFFFF;border:1px solid #E2E8F0 !important;">
+      <div style="height:140px;background:linear-gradient(135deg, #0F172A 0%, #334155 100%);border-radius:14px;margin-bottom:16px;display:grid;place-items:center;color:#FFFFFF;font-size:32px;">
+        <i class="bi bi-moon-stars"></i>
+      </div>
+      <h5 class="fw-bold text-dark mb-1">Dark Midnight Studio</h5>
+      <p class="text-secondary small mb-3">Sleek dark-mode aesthetic with radiant neon accents, video embeds, and dynamic payment tiles.</p>
+      <a href="{% url 'card_builder' %}" class="btn-dash-primary w-100 justify-content-center">Use Template</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

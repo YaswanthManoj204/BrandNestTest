@@ -1,0 +1,236 @@
+{% extends "dashboard/base_dashboard.html" %}
+
+{% block title %}Wallet Pass Designer{% endblock %}
+
+{% block dashboard_content %}
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+  <div>
+    <h1 style="font-size:26px;font-weight:800;color:#0F172A;margin:0 0 4px;">Wallet Pass</h1>
+    <p style="font-size:13.5px;color:#64748B;margin:0;">Design how your Apple and Google Wallet pass looks to match your brand.</p>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- Left Column: Pass Preview -->
+  <div class="col-lg-5 col-xl-4">
+    <!-- Platform Switcher -->
+    <div class="d-flex justify-content-center mb-3">
+      <div style="background:#F1F5F9;border:1px solid #E2E8F0;padding:4px;border-radius:12px;display:inline-flex;gap:4px;">
+        <button type="button" class="btn btn-sm btn-dark rounded-pill px-3 py-1 fw-semibold" id="tabAppleWallet" onclick="switchWalletPlatform('apple')">
+          <i class="bi bi-apple me-1"></i> Apple Wallet
+        </button>
+        <button type="button" class="btn btn-sm btn-light border-0 rounded-pill px-3 py-1 fw-semibold text-secondary" id="tabGoogleWallet" onclick="switchWalletPlatform('google')">
+          <i class="bi bi-google me-1"></i> Google Wallet
+        </button>
+      </div>
+    </div>
+
+    <!-- Pass Mockup Card -->
+    <div class="p-4 rounded-4 shadow-sm" style="background:#FFFFFF;border:1px solid #E2E8F0;">
+      <div id="passContainer" style="background:#1A1744;border-radius:24px;overflow:hidden;box-shadow:0 16px 36px rgba(0,0,0,0.25);color:#FFFFFF;padding:22px 20px 24px;transition:background 0.25s ease;">
+        <!-- Pass Header (Logo) -->
+        <div class="d-flex align-items-center justify-content-between mb-3">
+          <div style="width:48px;height:48px;background:#FFFFFF;border-radius:12px;padding:4px;display:grid;place-items:center;overflow:hidden;">
+            <img id="passLogoImg" src="{% if selected_card.logo %}{{ selected_card.logo.url }}{% endif %}" alt="Logo" style="width:100%;height:100%;object-fit:contain;{% if not selected_card.logo %}display:none;{% endif %}">
+            <span id="passLogoPlaceholder" style="color:#10B981;font-weight:800;font-size:18px;{% if selected_card.logo %}display:none;{% endif %}">
+              {{ selected_card.business_name|default:"BN"|slice:":2"|upper }}
+            </span>
+          </div>
+          <small style="color:rgba(255,255,255,0.7);font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;">DIGITAL PASS</small>
+        </div>
+
+        <!-- Pass Banner Mesh -->
+        <div id="passBannerBox" style="background:linear-gradient(135deg, #0EA5E9 0%, #10B981 100%);border-radius:14px;padding:16px 14px;margin-bottom:18px;text-align:center;">
+          <div style="font-size:13px;font-weight:700;letter-spacing:0.02em;color:#FFFFFF;" id="passTagline">
+            {{ selected_card.tagline|default:"We Solve Business Challenges" }}
+          </div>
+        </div>
+
+        <!-- Identity -->
+        <div class="mb-3">
+          <small style="color:rgba(255,255,255,0.65);font-size:10px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;display:block;" id="passRole">
+            {{ selected_card.layout_config.role_title|default:"LEADERSHIP" }}
+          </small>
+          <div style="font-size:18px;font-weight:800;letter-spacing:-0.01em;color:#FFFFFF;" id="passOwnerName">
+            {{ selected_card.owner_name|default:"Brand Owner" }}
+          </div>
+          <small style="color:rgba(255,255,255,0.85);font-size:12px;" id="passBusinessName">
+            {{ selected_card.business_name|default:"BrandNest" }}
+          </small>
+        </div>
+
+        <!-- QR Code -->
+        <div class="text-center my-3">
+          <div style="display:inline-block;background:#FFFFFF;border-radius:14px;padding:12px;box-shadow:0 4px 12px rgba(0,0,0,0.15);">
+            <img id="passQrImg" src="{% if selected_card and selected_card.slug %}{% url 'card_qr_image' slug=selected_card.slug %}{% endif %}" alt="QR" style="width:130px;height:130px;object-fit:contain;display:block;">
+          </div>
+        </div>
+      </div>
+
+      <!-- Add to Wallet Button -->
+      <button type="button" class="btn btn-dark w-100 mt-3 py-2 fw-bold d-flex align-items-center justify-content-center gap-2" style="border-radius:12px;background:#000000;" onclick="downloadWalletFile()">
+        <i class="bi bi-apple fs-5" id="walletActionIcon"></i> <span id="walletActionText">Add to Apple Wallet</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Right Column: Controls -->
+  <div class="col-lg-7 col-xl-8">
+    <div class="card border-0 shadow-sm p-4" style="border-radius:20px;border:1px solid #E2E8F0 !important;background:#FFFFFF;">
+      <!-- Pull Content Dropdown -->
+      <div class="mb-4">
+        <label class="form-label small fw-bold text-secondary">Pull content from</label>
+        <select class="form-select" id="walletCardSelect" style="border-radius:12px;font-size:13.5px;" onchange="changeWalletCard(this)">
+          {% for card in cards %}
+            <option value="{{ card.id }}" data-slug="{{ card.slug }}" data-name="{{ card.owner_name|default:card.business_name }}" data-company="{{ card.business_name }}" data-tagline="{{ card.tagline }}" data-role="{{ card.layout_config.role_title|default:'LEADERSHIP' }}" data-logo="{% if card.logo %}{{ card.logo.url }}{% endif %}" {% if card.id == selected_card.id %}selected{% endif %}>
+              {{ card.owner_name|default:card.business_name }} ({{ card.slug }})
+            </option>
+          {% empty %}
+            <option value="">No cards created yet</option>
+          {% endfor %}
+        </select>
+        <div class="d-flex align-items-center justify-content-between p-3 mt-2 rounded-3" style="background:#F8FAFC;border:1px solid #E2E8F0;font-size:12.5px;">
+          <span style="color:#64748B;"><i class="bi bi-person me-1"></i> Your name, role, and photo come from your card.</span>
+          {% if selected_card %}
+            <a href="{% url 'card_edit' card_id=selected_card.card_id %}" class="fw-bold text-primary text-decoration-none">Edit Card &rarr;</a>
+          {% else %}
+            <a href="{% url 'card_builder' %}" class="fw-bold text-success text-decoration-none">+ Create First Card &rarr;</a>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Color Swatches -->
+      <div class="mb-4">
+        <label class="form-label small fw-bold text-secondary">Colours</label>
+        <div class="d-flex gap-3 flex-wrap">
+          <button type="button" class="btn p-3 rounded-4 border text-center color-swatch active-swatch" data-color="#1A1744" onclick="setPassColor('#1A1744', this)" style="min-width:85px;border-color:#10B981 !important;background:#F0FDF4;">
+            <div style="width:32px;height:32px;background:#1A1744;border-radius:50%;margin:0 auto 6px;display:grid;place-items:center;color:#FFFFFF;font-size:14px;">
+              <i class="bi bi-check-lg"></i>
+            </div>
+            <small class="fw-bold d-block text-dark" style="font-size:12px;">Brand</small>
+          </button>
+
+          <button type="button" class="btn p-3 rounded-4 border text-center color-swatch" data-color="#0F172A" onclick="setPassColor('#0F172A', this)" style="min-width:85px;background:#FFFFFF;">
+            <div style="width:32px;height:32px;background:#0F172A;border-radius:50%;margin:0 auto 6px;"></div>
+            <small class="fw-bold d-block text-secondary" style="font-size:12px;">Navy</small>
+          </button>
+
+          <button type="button" class="btn p-3 rounded-4 border text-center color-swatch" data-color="#334155" onclick="setPassColor('#334155', this)" style="min-width:85px;background:#FFFFFF;">
+            <div style="width:32px;height:32px;background:#334155;border-radius:50%;margin:0 auto 6px;"></div>
+            <small class="fw-bold d-block text-secondary" style="font-size:12px;">Charcoal</small>
+          </button>
+
+          <button type="button" class="btn p-3 rounded-4 border text-center color-swatch" data-color="#059669" onclick="setPassColor('#059669', this)" style="min-width:85px;background:#FFFFFF;">
+            <div style="width:32px;height:32px;background:#059669;border-radius:50%;margin:0 auto 6px;"></div>
+            <small class="fw-bold d-block text-secondary" style="font-size:12px;">Emerald</small>
+          </button>
+        </div>
+      </div>
+
+      <!-- Logo Section -->
+      <div class="mb-4 pb-3 border-bottom">
+        <label class="form-label small fw-bold text-secondary">Logo</label>
+        <div class="d-flex align-items-center gap-3">
+          <div style="width:64px;height:64px;border:1px solid #E2E8F0;border-radius:14px;padding:6px;display:grid;place-items:center;background:#FFFFFF;">
+            <img id="logoPreviewThumb" src="{% if selected_card.logo %}{{ selected_card.logo.url }}{% endif %}" alt="Logo" style="width:100%;height:100%;object-fit:contain;">
+          </div>
+          <div>
+            <strong style="font-size:13px;display:block;">Your logo</strong>
+            <small style="color:#64748B;font-size:12px;display:block;margin-bottom:8px;">Appears at the top of your pass. PNG or SVG, max 5MB.</small>
+            <button type="button" class="btn btn-sm btn-outline-danger rounded-pill" onclick="removePassLogo()">
+              <i class="bi bi-trash"></i> Remove Photo
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Banner Section -->
+      <div class="mb-4">
+        <label class="form-label small fw-bold text-secondary">Banner</label>
+        <div class="d-flex align-items-center gap-3">
+          <div style="width:84px;height:44px;border-radius:10px;background:linear-gradient(135deg, #0EA5E9 0%, #10B981 100%);"></div>
+          <div>
+            <strong style="font-size:13px;display:block;">Your banner</strong>
+            <small style="color:#64748B;font-size:12px;display:block;margin-bottom:8px;">Shown behind your name on the pass. Dimension: 624 x 246 pixels.</small>
+            <button type="button" class="btn btn-sm btn-outline-danger rounded-pill" onclick="alert('Banner reset to default gradient.');">
+              <i class="bi bi-trash"></i> Remove Photo
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function switchWalletPlatform(platform) {
+    const btnA = document.getElementById('tabAppleWallet');
+    const btnG = document.getElementById('tabGoogleWallet');
+    const icon = document.getElementById('walletActionIcon');
+    const text = document.getElementById('walletActionText');
+
+    if (platform === 'apple') {
+      btnA.className = 'btn btn-sm btn-dark rounded-pill px-3 py-1 fw-semibold';
+      btnG.className = 'btn btn-sm btn-light border-0 rounded-pill px-3 py-1 fw-semibold text-secondary';
+      icon.className = 'bi bi-apple fs-5';
+      text.textContent = 'Add to Apple Wallet';
+    } else {
+      btnG.className = 'btn btn-sm btn-dark rounded-pill px-3 py-1 fw-semibold';
+      btnA.className = 'btn btn-sm btn-light border-0 rounded-pill px-3 py-1 fw-semibold text-secondary';
+      icon.className = 'bi bi-google fs-5';
+      text.textContent = 'Add to Google Wallet';
+    }
+  }
+
+  function setPassColor(hex, btn) {
+    document.getElementById('passContainer').style.background = hex;
+    document.querySelectorAll('.color-swatch').forEach(b => {
+      b.style.borderColor = '#E2E8F0';
+      b.style.background = '#FFFFFF';
+    });
+    btn.style.borderColor = '#10B981';
+    btn.style.background = '#F0FDF4';
+  }
+
+  function changeWalletCard(select) {
+    const opt = select.options[select.selectedIndex];
+    document.getElementById('passOwnerName').textContent = opt.dataset.name || opt.dataset.company;
+    document.getElementById('passBusinessName').textContent = opt.dataset.company;
+    document.getElementById('passTagline').textContent = opt.dataset.tagline || 'We Solve Business Challenges';
+    document.getElementById('passRole').textContent = opt.dataset.role || 'LEADERSHIP';
+    const slug = opt.dataset.slug;
+    if (slug) {
+      document.getElementById('passQrImg').src = '/card/' + slug + '/qr.png';
+    }
+    const logoUrl = opt.dataset.logo;
+    const logoImg = document.getElementById('passLogoImg');
+    const logoPlaceholder = document.getElementById('passLogoPlaceholder');
+    const thumb = document.getElementById('logoPreviewThumb');
+    if (logoUrl) {
+      logoImg.src = logoUrl;
+      logoImg.style.display = 'block';
+      logoPlaceholder.style.display = 'none';
+      if (thumb) thumb.src = logoUrl;
+    } else {
+      logoImg.style.display = 'none';
+      logoPlaceholder.style.display = 'block';
+      logoPlaceholder.textContent = (opt.dataset.company || 'BN').substring(0, 2).toUpperCase();
+      if (thumb) thumb.src = '';
+    }
+  }
+
+  function removePassLogo() {
+    document.getElementById('passLogoImg').style.display = 'none';
+    document.getElementById('passLogoPlaceholder').style.display = 'block';
+    const thumb = document.getElementById('logoPreviewThumb');
+    if (thumb) thumb.src = '';
+  }
+
+  function downloadWalletFile() {
+    alert('Wallet Pass bundle (.pkpass) generated!\nYour smartphone can now install this pass directly to your Apple or Google Wallet.');
+  }
+</script>
+{% endblock %}
+

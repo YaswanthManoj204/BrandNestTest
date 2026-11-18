@@ -1,0 +1,97 @@
+{% extends "dashboard/base_dashboard.html" %}
+
+{% block title %}Email Signature{% endblock %}
+
+{% block dashboard_content %}
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+  <div>
+    <h1 style="font-size:26px;font-weight:800;color:#0F172A;margin:0 0 4px;">Email Signature</h1>
+    <p style="font-size:13.5px;color:#64748B;margin:0;">Generate a professional, clickable HTML email signature linked to your digital business card.</p>
+  </div>
+</div>
+
+<div class="row g-4" style="max-width:960px;">
+  <div class="col-lg-7">
+    <div class="card border-0 shadow-sm p-4 rounded-4" style="background:#FFFFFF;border:1px solid #E2E8F0 !important;">
+      <h6 class="fw-bold text-dark mb-3">Live Signature Preview</h6>
+      
+      <!-- Email Signature Render Box -->
+      <div id="emailSigContainer" class="p-4 rounded-3 border mb-3" style="background:#FFFFFF;border-color:#E2E8F0 !important;">
+        {% if selected_card %}
+        <table cellpadding="0" cellspacing="0" border="0" style="font-family:'Plus Jakarta Sans', Arial, sans-serif; font-size:13px; color:#1E293B;">
+          <tr>
+            <td style="vertical-align:middle; padding-right:16px; border-right:2px solid #10B981;">
+              {% if selected_card.logo %}
+                <img src="{{ selected_card.logo.url }}" alt="Logo" width="64" height="64" style="border-radius:12px; object-fit:cover; display:block;">
+              {% elif selected_card.profile_image %}
+                <img src="{{ selected_card.profile_image.url }}" alt="Photo" width="64" height="64" style="border-radius:50%; object-fit:cover; display:block;">
+              {% else %}
+                <div style="width:64px; height:64px; border-radius:12px; background:#10B981; color:#fff; font-size:24px; font-weight:bold; display:flex; align-items:center; justify-content:center; text-align:center; line-height:64px;">
+                  {{ selected_card.business_name|slice:":1"|upper }}
+                </div>
+              {% endif %}
+            </td>
+            <td style="vertical-align:middle; padding-left:16px;">
+              <div style="font-size:16px; font-weight:bold; color:#0F172A; line-height:1.2;">{{ selected_card.owner_name|default:selected_card.business_name }}</div>
+              <div style="font-size:12px; color:#10B981; font-weight:600; margin-bottom:4px;">{{ selected_card.layout_config.role_title|default:"Leader" }} &bull; {{ selected_card.business_name }}</div>
+              <div style="font-size:12px; color:#64748B; margin-bottom:6px;">
+                {% if selected_card.phone %}📞 {{ selected_card.phone }} &nbsp;{% endif %}
+                {% if selected_card.email %}✉️ <a href="mailto:{{ selected_card.email }}" style="color:#0284C7; text-decoration:none;">{{ selected_card.email }}</a>{% endif %}
+              </div>
+              <a href="{{ request.scheme }}://{{ request.get_host }}{% url 'card_standalone' slug=selected_card.slug %}" target="_blank" style="display:inline-block; background:#10B981; color:#ffffff; font-size:11px; font-weight:bold; text-decoration:none; padding:4px 10px; border-radius:6px;">
+                View Digital Card &rarr;
+              </a>
+            </td>
+          </tr>
+        </table>
+        {% else %}
+        <div class="text-center py-4">
+          <i class="bi bi-envelope-at text-muted" style="font-size:36px;"></i>
+          <p class="text-muted mt-2 mb-3" style="font-size:13.5px;">No cards found yet. Create a business card to generate a professional email signature.</p>
+          <a href="{% url 'card_builder' %}" class="btn btn-sm btn-success rounded-pill px-3 py-2 fw-semibold">
+            <i class="bi bi-plus-lg me-1"></i> Create Card
+          </a>
+        </div>
+        {% endif %}
+      </div>
+
+      <button type="button" class="btn-dash-primary w-100 justify-content-center" onclick="copySignatureHtml()">
+        <i class="bi bi-clipboard"></i> Copy Email Signature
+      </button>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card border-0 shadow-sm p-4 rounded-4" style="background:#FFFFFF;border:1px solid #E2E8F0 !important;">
+      <h6 class="fw-bold text-dark mb-3">Card Settings</h6>
+      <div class="mb-3">
+        <label class="form-label small fw-bold text-secondary">Card to Feature</label>
+        <select class="form-select" onchange="window.location.search='?card='+this.value">
+          {% for card in cards %}
+            <option value="{{ card.id }}" {% if card.id == selected_card.id %}selected{% endif %}>{{ card.business_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <p class="small text-muted mb-0">
+        Paste the copied signature into Gmail, Outlook, or Apple Mail settings under <em>Signature</em>.
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function copySignatureHtml() {
+    const container = document.getElementById('emailSigContainer');
+    const range = document.createRange();
+    range.selectNode(container);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(range);
+    document.execCommand('copy');
+    window.getSelection().removeAllRanges();
+    alert('Email Signature copied to clipboard!\nYou can now paste (Ctrl+V / Cmd+V) directly into Gmail, Outlook, or Apple Mail.');
+  }
+</script>
+{% endblock %}
+

@@ -1,0 +1,129 @@
+{% extends "dashboard/base_dashboard.html" %}
+
+{% block title %}QR Codes{% endblock %}
+
+{% block dashboard_content %}
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+  <div>
+    <h1 style="font-size:26px;font-weight:800;color:#0F172A;margin:0 0 4px;">QR Codes</h1>
+    <p style="font-size:13.5px;color:#64748B;margin:0;">High-resolution QR codes mapped to your live digital cards and products.</p>
+  </div>
+
+  <a href="{% url 'card_builder' %}" class="btn-dash-primary">
+    <i class="bi bi-plus-lg"></i> Create QR Code
+  </a>
+</div>
+
+<!-- Search & Table Card -->
+<div class="dash-table-wrap mb-4">
+  <div class="p-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-3" style="background:#FFFFFF;">
+    <div class="position-relative" style="width:100%;max-width:320px;">
+      <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size:13px;"></i>
+      <input type="text" id="qrSearchInput" class="form-control form-control-sm ps-5" placeholder="Search with name, type, etc" style="border-radius:10px;font-size:13px;" onkeyup="filterQrTable()">
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+      <span style="font-size:12.5px;color:#64748B;">Rows per page:</span>
+      <select class="form-select form-select-sm" style="width:auto;border-radius:8px;font-size:12.5px;">
+        <option>20</option>
+        <option>50</option>
+        <option>100</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="dash-table" id="qrTable">
+      <thead>
+        <tr>
+          <th style="width:90px;">QR Code</th>
+          <th>Name <i class="bi bi-chevron-expand"></i></th>
+          <th>Type <i class="bi bi-chevron-expand"></i></th>
+          <th>Scans <i class="bi bi-chevron-expand"></i></th>
+          <th>Creation Date</th>
+          <th>Status</th>
+          <th style="text-align:right;">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for card in cards %}
+          <tr>
+            <td>
+              <div style="width:48px;height:48px;background:#FFFFFF;border:1px solid #E2E8F0;border-radius:10px;padding:3px;display:grid;place-items:center;">
+                <img src="{% url 'card_qr_image' slug=card.slug %}" alt="QR" style="width:100%;height:100%;object-fit:contain;">
+              </div>
+            </td>
+            <td>
+              <strong style="color:#0F172A;font-size:13.5px;">{{ card.business_name }}</strong>
+              {% if card.owner_name %}
+                <div style="font-size:11.5px;color:#64748B;">{{ card.owner_name }}</div>
+              {% endif %}
+            </td>
+            <td>
+              <span class="badge bg-light text-secondary border px-2 py-1" style="font-size:11.5px;font-weight:600;">Link</span>
+            </td>
+            <td>
+              <span class="fw-bold text-dark">{{ card.views_count }}</span>
+            </td>
+            <td style="color:#64748B;font-size:13px;">
+              {{ card.created_at|date:"j F Y" }}
+            </td>
+            <td>
+              <span class="badge-status-active">
+                <span style="width:6px;height:6px;background:#10B981;border-radius:50%;display:inline-block;"></span> Active
+              </span>
+            </td>
+            <td style="text-align:right;">
+              <div class="d-inline-flex align-items-center gap-2">
+                <button type="button" class="btn-dash-outline" style="padding:5px 12px;font-size:12px;" onclick="copyQrLink('{{ request.scheme }}://{{ request.get_host }}{% url 'card_standalone' slug=card.slug %}')">
+                  <i class="bi bi-share"></i> Share
+                </button>
+                <a href="{% url 'card_qr_image' slug=card.slug %}?download=1" download="{{ card.slug }}-qr.png" class="btn-dash-outline" style="padding:5px 12px;font-size:12px;">
+                  <i class="bi bi-download"></i> Download
+                </a>
+                <button type="button" class="btn btn-sm btn-link text-secondary p-0" style="font-size:16px;">
+                  <i class="bi bi-three-dots-vertical"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="7" class="text-center py-5 text-muted" style="font-size:13px;">
+              No QR codes generated yet. When you create a digital business card, a tracking QR code will automatically appear here.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="p-3 border-top d-flex align-items-center justify-content-between flex-wrap gap-2" style="background:#FAFAFA;font-size:13px;color:#64748B;">
+    <div>Showing 1 - {{ cards|length }} of {{ cards|length }} results</div>
+    <div>
+      <span class="badge bg-success px-3 py-2" style="border-radius:8px;">1</span>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function filterQrTable() {
+    const input = document.getElementById('qrSearchInput');
+    const filter = input.value.toLowerCase();
+    const rows = document.querySelectorAll('#qrTable tbody tr');
+    rows.forEach(row => {
+      const text = row.textContent.toLowerCase();
+      row.style.display = text.includes(filter) ? '' : 'none';
+    });
+  }
+
+  function copyQrLink(url) {
+    navigator.clipboard.writeText(url).then(() => {
+      alert('Card link copied to clipboard:\n' + url);
+    });
+  }
+</script>
+{% endblock %}
+

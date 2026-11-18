@@ -1,0 +1,118 @@
+{% extends "enterprise_admin/base_enterprise_admin.html" %}
+
+{% block title %}Enterprise Teams & Departments{% endblock %}
+
+{% block enterprise_content %}
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+  <div>
+    <h1 style="font-size:26px;font-weight:800;color:#0F172A;margin:0 0 4px;">Teams & Corporate Departments</h1>
+    <p style="font-size:13.5px;color:#64748B;margin:0;">Organize enterprise employees into divisional teams (Sales, Operations, Engineering, Leadership).</p>
+  </div>
+
+  <button type="button" class="btn-ent-primary" data-bs-toggle="modal" data-bs-target="#createTeamModal">
+    <i class="bi bi-folder-plus"></i> Create Department / Team
+  </button>
+</div>
+
+<!-- Teams Table -->
+<div class="ent-table-card">
+  <div class="table-responsive">
+    <table class="ent-table">
+      <thead>
+        <tr>
+          <th>Department / Team</th>
+          <th>Enterprise Company</th>
+          <th>Members Count</th>
+          <th>Owner / Lead</th>
+          <th>Created Date</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for team in teams %}
+          <tr>
+            <td>
+              <div class="d-flex align-items-center gap-3">
+                <div style="width:36px;height:36px;border-radius:10px;background:#EEF2FF;color:#4F46E5;display:grid;place-items:center;font-weight:700;font-size:14px;">
+                  <i class="bi bi-folder-fill"></i>
+                </div>
+                <div>
+                  <strong style="color:#0F172A;font-size:14px;display:block;">{{ team.name }}</strong>
+                  <small style="color:#64748B;">Corporate Department</small>
+                </div>
+              </div>
+            </td>
+            <td>
+              {% if team.enterprise_company %}
+                <span class="badge bg-light text-dark border px-2 py-1 fw-bold">
+                  <i class="bi bi-building text-primary me-1"></i> {{ team.enterprise_company.name }}
+                </span>
+              {% else %}
+                <span class="badge bg-secondary-subtle text-secondary px-2 py-1">Global Organization</span>
+              {% endif %}
+            </td>
+            <td>
+              <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2.5 py-1 fw-bold">
+                <i class="bi bi-people-fill me-1"></i> {{ team.member_count }} members
+              </span>
+            </td>
+            <td>
+              <span class="text-dark">{{ team.owner.username|default:"System Admin" }}</span>
+            </td>
+            <td>
+              <small class="text-secondary">{{ team.created_at|date:"M d, Y" }}</small>
+            </td>
+            <td class="text-end">
+              <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill" onclick="alert('Team roster: {{ team.member_count }} members assigned.');">
+                <i class="bi bi-info-circle"></i> Details
+              </button>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="6" class="text-center py-5 text-muted">
+              <i class="bi bi-diagram-3" style="font-size:36px;display:block;margin-bottom:8px;"></i>
+              No corporate departments or teams created yet. Use the button above to add one.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal: Create Team -->
+<div class="modal fade" id="createTeamModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow rounded-4">
+      <form method="post" action="{% url 'enterprise_admin_teams_add' %}">
+        {% csrf_token %}
+        <div class="modal-header border-bottom">
+          <h5 class="modal-title fw-bold"><i class="bi bi-folder-plus text-primary me-2"></i> Create Corporate Department</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body p-4">
+          <div class="mb-3">
+            <label class="form-label small fw-bold">Department / Team Name <span class="text-danger">*</span></label>
+            <input type="text" name="name" class="form-control" placeholder="e.g. Enterprise Sales & Growth" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-bold">Enterprise Company (Optional)</label>
+            <select name="company_id" class="form-select">
+              <option value="">-- Global / Shared Team --</option>
+              {% for comp in companies %}
+                <option value="{{ comp.id }}">{{ comp.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer border-top bg-light rounded-bottom-4">
+          <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary rounded-pill px-4 fw-bold">Create Team</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

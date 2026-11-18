@@ -1,0 +1,57 @@
+{% extends "dashboard/base_dashboard.html" %}
+
+{% block title %}NFC Accessories{% endblock %}
+
+{% block dashboard_content %}
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+  <div>
+    <h1 style="font-size:26px;font-weight:800;color:#0F172A;margin:0 0 4px;">Accessories</h1>
+    <p style="font-size:13.5px;color:#64748B;margin:0;">Hardware NFC products, smart metal cards, epoxy key fobs, and custom desk tap displays.</p>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-md-6 col-lg-4">
+    <div class="card border-0 shadow-sm p-4 rounded-4 h-100" style="background:#FFFFFF;border:1px solid #E2E8F0 !important;">
+      <div style="height:140px;background:#0F172A;border-radius:14px;margin-bottom:16px;display:grid;place-items:center;color:#E2E8F0;font-size:32px;">
+        <i class="bi bi-credit-card-2-front"></i>
+      </div>
+      <h5 class="fw-bold text-dark mb-1">Matte Black NFC PVC Card</h5>
+      <p class="text-secondary small mb-3">Custom laser engraved smart business card with NTAG216 contactless chip.</p>
+      <div class="d-flex align-items-center justify-content-between pt-2 border-top">
+        <strong style="color:#10B981;font-size:16px;">₹999</strong>
+        <button type="button" class="btn-dash-primary" onclick="alert('Order request placed! Our team will contact you for custom logo engraving.');">Order Now</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-6 col-lg-4">
+    <div class="card border-0 shadow-sm p-4 rounded-4 h-100" style="background:#FFFFFF;border:1px solid #E2E8F0 !important;">
+      <div style="height:140px;background:linear-gradient(135deg, #78716C 0%, #D6D3D1 100%);border-radius:14px;margin-bottom:16px;display:grid;place-items:center;color:#0F172A;font-size:32px;">
+        <i class="bi bi-shield-check"></i>
+      </div>
+      <h5 class="fw-bold text-dark mb-1">Brushed Steel Metal NFC Card</h5>
+      <p class="text-secondary small mb-3">Luxury stainless steel card with CNC metallic finish and dual hybrid chip.</p>
+      <div class="d-flex align-items-center justify-content-between pt-2 border-top">
+        <strong style="color:#10B981;font-size:16px;">₹2,499</strong>
+        <button type="button" class="btn-dash-primary" onclick="alert('Order request placed! Our team will contact you for custom logo engraving.');">Order Now</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-6 col-lg-4">
+    <div class="card border-0 shadow-sm p-4 rounded-4 h-100" style="background:#FFFFFF;border:1px solid #E2E8F0 !important;">
+      <div style="height:140px;background:#10B981;border-radius:14px;margin-bottom:16px;display:grid;place-items:center;color:#FFFFFF;font-size:32px;">
+        <i class="bi bi-phone-flip"></i>
+      </div>
+      <h5 class="fw-bold text-dark mb-1">Epoxy Phone Tap Sticker</h5>
+      <p class="text-secondary small mb-3">Waterproof 3M adhesive NFC tag for the back of smartphones and counter desks.</p>
+      <div class="d-flex align-items-center justify-content-between pt-2 border-top">
+        <strong style="color:#10B981;font-size:16px;">₹499</strong>
+        <button type="button" class="btn-dash-primary" onclick="alert('Order request placed! Our team will contact you for custom logo engraving.');">Order Now</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

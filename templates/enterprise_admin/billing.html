@@ -1,0 +1,115 @@
+{% extends "enterprise_admin/base_enterprise_admin.html" %}
+
+{% block title %}Enterprise Bundles & Revenue{% endblock %}
+
+{% block enterprise_content %}
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+  <div>
+    <h1 style="font-size:26px;font-weight:800;color:#0F172A;margin:0 0 4px;">Enterprise Bundles & Platform Billing</h1>
+    <p style="font-size:13.5px;color:#64748B;margin:0;">Overview of active corporate pricing tiers, quota packaging, and enterprise transaction history.</p>
+  </div>
+</div>
+
+<!-- Bundle Tiers Showcase -->
+<div class="row g-4 mb-4">
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm p-4 rounded-4 h-100" style="background:#FFFFFF;border:1px solid #E2E8F0 !important;">
+      <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1 rounded-pill fw-bold w-auto align-self-start mb-2">STARTER</span>
+      <h3 class="fw-extrabold text-dark mt-2 mb-1">5 Cards Bundle</h3>
+      <div class="display-6 fw-bold text-dark my-2">₹999 <small class="text-muted" style="font-size:14px;font-weight:400;">one-time</small></div>
+      <p class="text-secondary small mb-3">₹199.80 per employee card. Perfect for small leadership teams and founders.</p>
+      <ul class="list-unstyled small text-secondary mb-0">
+        <li class="py-1"><i class="bi bi-check2 text-success me-2"></i> 5 Full Dynamic NFC/QR Cards</li>
+        <li class="py-1"><i class="bi bi-check2 text-success me-2"></i> Unlimited Inbound Leads</li>
+        <li class="py-1"><i class="bi bi-check2 text-success me-2"></i> Company Portal Dashboard</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm p-4 rounded-4 h-100 position-relative" style="background:#FFFFFF;border:2px solid #4F46E5 !important;">
+      <span class="position-absolute top-0 end-0 translate-middle badge bg-primary rounded-pill px-3 py-1.5 fw-bold" style="font-size:11px;">MOST POPULAR</span>
+      <span class="badge bg-indigo-subtle text-primary border border-indigo-subtle px-2.5 py-1 rounded-pill fw-bold w-auto align-self-start mb-2">GROWTH</span>
+      <h3 class="fw-extrabold text-dark mt-2 mb-1">10 Cards Bundle</h3>
+      <div class="display-6 fw-bold text-dark my-2">₹1,799 <small class="text-muted" style="font-size:14px;font-weight:400;">one-time</small></div>
+      <p class="text-secondary small mb-3">₹179.90 per employee card. Tailored for growing sales departments.</p>
+      <ul class="list-unstyled small text-secondary mb-0">
+        <li class="py-1"><i class="bi bi-check2 text-success me-2"></i> 10 Dynamic Business Cards</li>
+        <li class="py-1"><i class="bi bi-check2 text-success me-2"></i> Team & Department Segregation</li>
+        <li class="py-1"><i class="bi bi-check2 text-success me-2"></i> CRM Lead Export & Analytics</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm p-4 rounded-4 h-100" style="background:#FFFFFF;border:1px solid #E2E8F0 !important;">
+      <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1 rounded-pill fw-bold w-auto align-self-start mb-2">BEST VALUE</span>
+      <h3 class="fw-extrabold text-dark mt-2 mb-1">15 Cards Bundle</h3>
+      <div class="display-6 fw-bold text-dark my-2">₹2,499 <small class="text-muted" style="font-size:14px;font-weight:400;">one-time</small></div>
+      <p class="text-secondary small mb-3">₹166.60 per employee card. Maximum economy for enterprise divisions.</p>
+      <ul class="list-unstyled small text-secondary mb-0">
+        <li class="py-1"><i class="bi bi-check2 text-success me-2"></i> 15 Full Dynamic Employee Cards</li>
+        <li class="py-1"><i class="bi bi-check2 text-success me-2"></i> Custom Domain Assignment</li>
+        <li class="py-1"><i class="bi bi-check2 text-success me-2"></i> Dedicated Account Support</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- Company Accounts & Billing Activity -->
+<div class="ent-table-card">
+  <div class="ent-table-header">
+    <h5 style="font-size:16px;font-weight:800;color:#0F172A;margin:0;">Enterprise Client Billing Summary</h5>
+  </div>
+
+  <div class="table-responsive">
+    <table class="ent-table">
+      <thead>
+        <tr>
+          <th>Enterprise Client</th>
+          <th>Plan Tier</th>
+          <th>Total Cards Provisioned</th>
+          <th>Total Collected (₹ INR)</th>
+          <th>Payment Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for comp in companies %}
+          <tr>
+            <td>
+              <strong style="color:#0F172A;display:block;">{{ comp.name }}</strong>
+              <small class="text-muted">{{ comp.email|default:"No email" }}</small>
+            </td>
+            <td>
+              <span class="badge-tier-popular">{{ comp.plan_tier }}</span>
+            </td>
+            <td>
+              <span class="fw-bold text-dark">{{ comp.card_quota }} cards</span>
+              <small class="text-muted">({{ comp.cards_used }} issued)</small>
+            </td>
+            <td>
+              <span class="fw-bold text-dark" style="font-size:15px;">₹{{ comp.total_paid }}</span>
+            </td>
+            <td>
+              <span class="badge-ent-active"><i class="bi bi-check-circle-fill me-1"></i> Paid & Active</span>
+            </td>
+            <td>
+              <a href="{% url 'enterprise_admin_companies' %}" class="btn btn-sm btn-outline-secondary rounded-pill py-1 px-3">
+                Manage Quota
+              </a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="6" class="text-center py-4 text-muted">
+              No enterprise billing transactions recorded yet.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+

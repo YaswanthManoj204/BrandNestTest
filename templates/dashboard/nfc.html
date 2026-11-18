@@ -1,0 +1,195 @@
+{% extends "dashboard/base_dashboard.html" %}
+
+{% block title %}NFC Tags{% endblock %}
+
+{% block dashboard_content %}
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+  <div>
+    <h1 style="font-size:26px;font-weight:800;color:#0F172A;margin:0 0 4px;">NFC Tags</h1>
+    <p style="font-size:13.5px;color:#64748B;margin:0;">Manage and program physical contactless smart NFC business cards and chips.</p>
+  </div>
+
+  <button type="button" class="btn-dash-primary" data-bs-toggle="modal" data-bs-target="#newNfcModal">
+    <i class="bi bi-plus-lg"></i> Register New NFC Tag
+  </button>
+</div>
+
+<!-- NFC Tag Cards Row -->
+<div class="row g-4">
+  {% for tag in nfc_tags %}
+    <div class="col-lg-6 col-xl-5">
+      <div class="card border-0 shadow-sm overflow-hidden" style="border-radius:20px;border:1px solid #E2E8F0 !important;background:#FFFFFF;">
+        <!-- Top Status Bar -->
+        <div style="background:{% if tag.is_active %}#10B981{% else %}#94A3B8{% endif %};color:#FFFFFF;text-align:center;padding:7px;font-size:12px;font-weight:700;letter-spacing:0.04em;">
+          {% if tag.is_active %}ACTIVE{% else %}PAUSED{% endif %}
+        </div>
+
+        <div class="p-4">
+          <!-- Tag Info Box -->
+          <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:16px;padding:20px;margin-bottom:20px;position:relative;">
+            <div class="d-flex align-items-start justify-content-between mb-3">
+              <div>
+                <small style="color:#64748B;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;display:block;">Unique Code</small>
+                <div style="font-size:17px;font-weight:800;color:#0F172A;letter-spacing:0.02em;">{{ tag.unique_code }}</div>
+              </div>
+              <div style="width:42px;height:42px;border-radius:50%;background:#FFFFFF;border:1px solid #E2E8F0;display:grid;place-items:center;color:#10B981;font-size:20px;">
+                <i class="bi bi-wifi" style="transform:rotate(90deg);"></i>
+              </div>
+            </div>
+
+            <div class="row g-2 pt-2 border-top">
+              <div class="col-6">
+                <small style="color:#64748B;font-size:11px;font-weight:600;display:block;">NFC Mode</small>
+                <strong style="color:#0F172A;font-size:13.5px;">{{ tag.get_nfc_mode_display }}</strong>
+              </div>
+              <div class="col-6">
+                <small style="color:#64748B;font-size:11px;font-weight:600;display:block;">Total Taps</small>
+                <strong style="color:#10B981;font-size:15px;">{{ tag.total_taps }}</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- Change NFC Mode Form -->
+          <h6 style="font-size:13px;font-weight:700;color:#0F172A;margin:0 0 12px;">Change NFC Mode</h6>
+          <form method="POST" action="{% url 'dashboard_nfc_update' tag_id=tag.id %}" id="nfcForm_{{ tag.id }}">
+            {% csrf_token %}
+            <div class="d-flex flex-column gap-2 mb-4">
+              <!-- Mode 1: Web Card -->
+              <label class="d-flex align-items-center justify-content-between p-3 rounded-3 border" style="cursor:pointer;background:{% if tag.nfc_mode == 'web_card' %}#F0FDF4{% else %}#FFFFFF{% endif %};border-color:{% if tag.nfc_mode == 'web_card' %}#86EFAC{% else %}#E2E8F0{% endif %} !important;">
+                <div class="d-flex align-items-center gap-3">
+                  <i class="bi bi-person-vcard text-success fs-5"></i>
+                  <div>
+                    <strong style="font-size:13px;color:#0F172A;display:block;">Web Card</strong>
+                    <small style="font-size:11.5px;color:#64748B;">{{ tag.card.business_name }} ({{ tag.card.slug }})</small>
+                  </div>
+                </div>
+                <input class="form-check-input" type="radio" name="nfc_mode" value="web_card" {% if tag.nfc_mode == 'web_card' %}checked{% endif %} onchange="this.form.submit()">
+              </label>
+
+              <!-- Mode 2: Save Contact -->
+              <label class="d-flex align-items-center justify-content-between p-3 rounded-3 border" style="cursor:pointer;background:{% if tag.nfc_mode == 'save_contact' %}#F0FDF4{% else %}#FFFFFF{% endif %};border-color:{% if tag.nfc_mode == 'save_contact' %}#86EFAC{% else %}#E2E8F0{% endif %} !important;">
+                <div class="d-flex align-items-center gap-3">
+                  <i class="bi bi-person-plus text-primary fs-5"></i>
+                  <div>
+                    <strong style="font-size:13px;color:#0F172A;display:block;">Save Contact</strong>
+                    <small style="font-size:11.5px;color:#64748B;">Instantly downloads .vcf card on tap</small>
+                  </div>
+                </div>
+                <input class="form-check-input" type="radio" name="nfc_mode" value="save_contact" {% if tag.nfc_mode == 'save_contact' %}checked{% endif %} onchange="this.form.submit()">
+              </label>
+
+              <!-- Mode 3: Lead Generation -->
+              <label class="d-flex align-items-center justify-content-between p-3 rounded-3 border" style="cursor:pointer;background:{% if tag.nfc_mode == 'lead_generation' %}#F0FDF4{% else %}#FFFFFF{% endif %};border-color:{% if tag.nfc_mode == 'lead_generation' %}#86EFAC{% else %}#E2E8F0{% endif %} !important;">
+                <div class="d-flex align-items-center gap-3">
+                  <i class="bi bi-chat-left-dots text-warning fs-5"></i>
+                  <div>
+                    <strong style="font-size:13px;color:#0F172A;display:block;">Lead Generation</strong>
+                    <small style="font-size:11.5px;color:#64748B;">Directs visitor straight to callback/inquiry</small>
+                  </div>
+                </div>
+                <input class="form-check-input" type="radio" name="nfc_mode" value="lead_generation" {% if tag.nfc_mode == 'lead_generation' %}checked{% endif %} onchange="this.form.submit()">
+              </label>
+
+              <!-- Mode 4: Link to Any URL -->
+              <label class="d-flex align-items-center justify-content-between p-3 rounded-3 border" style="cursor:pointer;background:{% if tag.nfc_mode == 'custom_url' %}#F0FDF4{% else %}#FFFFFF{% endif %};border-color:{% if tag.nfc_mode == 'custom_url' %}#86EFAC{% else %}#E2E8F0{% endif %} !important;">
+                <div class="d-flex align-items-center gap-3">
+                  <i class="bi bi-link-45deg text-info fs-5"></i>
+                  <div>
+                    <strong style="font-size:13px;color:#0F172A;display:block;">Link to any URL</strong>
+                    <small style="font-size:11.5px;color:#64748B;">Redirects tap to custom website / social</small>
+                  </div>
+                </div>
+                <input class="form-check-input" type="radio" name="nfc_mode" value="custom_url" {% if tag.nfc_mode == 'custom_url' %}checked{% endif %} onchange="this.form.submit()">
+              </label>
+            </div>
+          </form>
+
+          <!-- Bottom Actions: Pause & Write to NFC -->
+          <div class="d-flex gap-2 pt-2 border-top">
+            <form method="POST" action="{% url 'dashboard_nfc_toggle_active' tag_id=tag.id %}" class="flex-fill">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-light border w-100 py-2 fw-semibold" style="border-radius:10px;font-size:13px;">
+                {% if tag.is_active %}<i class="bi bi-pause me-1"></i> Pause{% else %}<i class="bi bi-play me-1"></i> Resume{% endif %}
+              </button>
+            </form>
+
+            <button type="button" class="btn btn-sm btn-dash-primary flex-fill justify-content-center py-2" onclick="writeToNfcTag('{{ request.scheme }}://{{ request.get_host }}{% url 'card_standalone' slug=tag.card.slug %}')">
+              <i class="bi bi-broadcast"></i> Write to NFC
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% empty %}
+    <div class="col-12">
+      <div class="text-center py-5 bg-white rounded-4 border p-4" style="border-color:#E2E8F0 !important;">
+        <i class="bi bi-wifi fs-1 text-muted d-block mb-3" style="transform:rotate(90deg);"></i>
+        <h4 style="font-weight:700;font-size:18px;">No NFC Tags registered</h4>
+        <p style="color:#64748B;font-size:13.5px;max-width:420px;margin:0 auto 18px;">
+          Register a physical contactless NFC card to automatically encode, switch modes, and track live chip taps.
+        </p>
+        <button type="button" class="btn-dash-primary" data-bs-toggle="modal" data-bs-target="#newNfcModal">
+          <i class="bi bi-plus-lg"></i> Register NFC Tag
+        </button>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+
+<!-- Modal: Register NFC Tag -->
+<div class="modal fade" id="newNfcModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg" style="border-radius:20px;overflow:hidden;">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold" style="font-size:18px;">Register NFC Smart Tag</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="{% url 'dashboard_nfc_add' %}">
+        {% csrf_token %}
+        <div class="modal-body p-4">
+          <div class="mb-3">
+            <label class="form-label small fw-bold text-secondary">Select Business Card *</label>
+            <select name="card_id" class="form-select" required style="border-radius:10px;font-size:13.5px;">
+              {% for card in cards %}
+                <option value="{{ card.id }}">{{ card.business_name }} ({{ card.card_id }})</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-bold text-secondary">NFC Initial Mode</label>
+            <select name="nfc_mode" class="form-select" style="border-radius:10px;font-size:13.5px;">
+              <option value="web_card" selected>Web Card (Live URL)</option>
+              <option value="save_contact">Save Contact (.vcf instant)</option>
+              <option value="lead_generation">Lead Generation Form</option>
+              <option value="custom_url">Link to any URL</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer border-0 pt-0 px-4 pb-4">
+          <button type="button" class="btn btn-sm btn-light border rounded-pill px-3" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn-dash-primary rounded-pill px-4">Register Tag</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  async function writeToNfcTag(url) {
+    if ('NDEFReader' in window) {
+      try {
+        const ndef = new NDEFReader();
+        await ndef.write({ records: [{ recordType: "url", data: url }] });
+        alert('NFC Tag successfully written with URL:\n' + url);
+      } catch (error) {
+        alert('NFC Write Error: ' + error.message);
+      }
+    } else {
+      alert('NFC Web API not available on this browser/desktop.\nTo write NFC tags directly, open BrandNest in Chrome on your NFC-enabled mobile phone:\n' + url);
+    }
+  }
+</script>
+{% endblock %}
+

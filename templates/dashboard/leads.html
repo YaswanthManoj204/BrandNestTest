@@ -1,0 +1,150 @@
+{% extends "dashboard/base_dashboard.html" %}
+
+{% block title %}Leads CRM{% endblock %}
+
+{% block dashboard_content %}
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+  <div>
+    <h1 style="font-size:26px;font-weight:800;color:#0F172A;margin:0 0 4px;">Leads</h1>
+    <p style="font-size:13.5px;color:#64748B;margin:0;">Incoming inquiries and lead qualification pipeline across all cardholders.</p>
+  </div>
+
+  <div class="d-flex align-items-center gap-2">
+    <button type="button" class="btn-dash-outline" onclick="document.getElementById('leadSearchInput').focus()">
+      <i class="bi bi-funnel"></i> Filters
+    </button>
+    <a href="{% url 'dashboard_leads_export' %}" class="btn-dash-outline">
+      <i class="bi bi-download"></i> Export
+    </a>
+  </div>
+</div>
+
+<!-- 4 KPI Blocks -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3">
+    <div class="kpi-card">
+      <div class="kpi-card-title">Total Leads</div>
+      <div class="kpi-card-value">{{ total_leads_count|default:0 }}</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="kpi-card">
+      <div class="kpi-card-title">Today</div>
+      <div class="kpi-card-value">{{ leads_today|default:0 }}</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="kpi-card">
+      <div class="kpi-card-title">This Month</div>
+      <div class="kpi-card-value">{{ leads_month|default:0 }}</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="kpi-card">
+      <div class="kpi-card-title">Last Week</div>
+      <div class="kpi-card-value">{{ leads_week|default:0 }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- Leads Table Card -->
+<div class="dash-table-wrap mb-4">
+  <div class="p-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-3" style="background:#FFFFFF;">
+    <div class="position-relative" style="width:100%;max-width:320px;">
+      <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size:13px;"></i>
+      <input type="text" id="leadSearchInput" class="form-control form-control-sm ps-5" placeholder="Search Lead" style="border-radius:10px;font-size:13px;" onkeyup="filterLeadsTable()">
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+      <span style="font-size:12.5px;color:#64748B;">Rows per page:</span>
+      <select class="form-select form-select-sm" style="width:auto;border-radius:8px;font-size:12.5px;">
+        <option>20</option>
+        <option>50</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="dash-table" id="leadsTable">
+      <thead>
+        <tr>
+          <th>Created <i class="bi bi-chevron-expand"></i></th>
+          <th>Name <i class="bi bi-chevron-expand"></i></th>
+          <th>Email <i class="bi bi-chevron-expand"></i></th>
+          <th>Mobile</th>
+          <th>Owner</th>
+          <th>Stage</th>
+          <th>Qualification</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for lead in leads %}
+          <tr>
+            <td style="color:#64748B;font-size:13px;">
+              {{ lead.created_at|date:"j M Y" }}
+            </td>
+            <td>
+              <strong style="color:#0F172A;font-size:13.5px;">{{ lead.name }}</strong>
+            </td>
+            <td>
+              {% if lead.email %}
+                <a href="mailto:{{ lead.email }}" class="text-decoration-none" style="color:#0284C7;font-size:13px;">{{ lead.email }}</a>
+              {% else %}
+                <span class="text-muted">-</span>
+              {% endif %}
+            </td>
+            <td style="color:#334155;font-size:13px;">
+              {{ lead.phone|default:"-" }}
+            </td>
+            <td style="color:#475569;font-size:13px;font-weight:600;">
+              {{ lead.card.owner_name|default:lead.card.business_name|default:"General" }}
+            </td>
+            <td>
+              <span style="font-size:12px;font-weight:600;color:#0284C7;display:inline-flex;align-items:center;gap:4px;">
+                <span style="width:6px;height:6px;background:#0EA5E9;border-radius:50%;display:inline-block;"></span> {{ lead.get_stage_display }}
+              </span>
+            </td>
+            <td>
+              {% if lead.qualification == 'hot' %}
+                <span class="badge-status-hot">HOT</span>
+              {% elif lead.qualification == 'warm' %}
+                <span class="badge-status-warm">WARM</span>
+              {% else %}
+                <span class="badge-status-cold">COLD</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="7" class="text-center py-5 text-muted" style="font-size:13px;">
+              No leads received yet. When visitors fill the "Submit request" callback form on your cards, they automatically appear here with qualification tags.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="p-3 border-top d-flex align-items-center justify-content-between flex-wrap gap-2" style="background:#FAFAFA;font-size:13px;color:#64748B;">
+    <div>Showing 1 - {{ leads|length }} of {{ leads|length }} results</div>
+    <div>
+      <span class="badge bg-success px-3 py-2" style="border-radius:8px;">1</span>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function filterLeadsTable() {
+    const input = document.getElementById('leadSearchInput');
+    const filter = input.value.toLowerCase();
+    const rows = document.querySelectorAll('#leadsTable tbody tr');
+    rows.forEach(row => {
+      const text = row.textContent.toLowerCase();
+      row.style.display = text.includes(filter) ? '' : 'none';
+    });
+  }
+</script>
+{% endblock %}
+

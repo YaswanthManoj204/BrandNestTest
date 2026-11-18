@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Choose Your Plan – BrandNest Business Cards</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<style>
+:root {
+  --bg: #F2F2F2;
+  --ink: #16171A;
+  --mute: #6E717A;
+  --line: #E1E1E3;
+  --panel: #FFFFFF;
+  --blue: #0084FF;
+  --mist: #F2F6FA;
+  --f: "Onest", "Segoe UI", system-ui, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--f);
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow-x: hidden;
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(45% 55% at 88% 12%, rgba(83, 176, 220, 0.25), transparent 70%),
+    radial-gradient(40% 50% at 10% 85%, rgba(255, 206, 136, 0.2), transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+a { color: inherit; text-decoration: none; }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; width: 100%; position: relative; z-index: 1; }
+.top { position: sticky; top: 16px; z-index: 30; padding: 0 20px; }
+.nav {
+  max-width: 1120px;
+  margin: 0 auto;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(14px);
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px 10px 22px;
+  box-shadow: 0 1px 0 var(--line);
+}
+.logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; letter-spacing: -0.03em; }
+.mark { width: 30px; height: 30px; border-radius: 9px; background: var(--ink); position: relative; overflow: hidden; }
+.mark::before { content: ""; position: absolute; left: 8px; top: 6px; width: 6px; height: 18px; background: linear-gradient(#fff, #8a8b90); }
+.mark::after { content: ""; position: absolute; left: 14px; top: 12px; width: 9px; height: 12px; background: linear-gradient(#fff, #8a8b90); clip-path: polygon(0 0, 100% 40%, 100% 100%, 0 100%); }
+.nav-actions { display: flex; align-items: center; gap: 10px; }
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font: 600 14.5px var(--f);
+  padding: 11px 22px;
+  border-radius: 999px;
+  border: 0;
+  cursor: pointer;
+  background: var(--ink);
+  color: #fff;
+  transition: all 0.2s ease;
+}
+.pill:hover { background: #303238; transform: translateY(-1px); }
+.pill.light { background: #fff; color: var(--ink); border: 1px solid var(--line); }
+.pill.light:hover { background: var(--mist); }
+.pill.blue { background: var(--blue); color: #fff; }
+.pill.blue:hover { background: #006ee6; }
+.pill.full { width: 100%; padding: 14px 20px; font-size: 15.5px; }
+
+.main-section { flex: 1; display: flex; align-items: center; padding: 56px 0 72px; }
+.header-block { text-align: center; max-width: 680px; margin: 0 auto 42px; }
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+.eyebrow .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--blue); }
+.header-block h1 { font-size: clamp(28px, 4vw, 42px); font-weight: 700; letter-spacing: -0.03em; line-height: 1.15; margin-bottom: 12px; }
+.header-block p { color: var(--mute); font-size: 16px; line-height: 1.6; }
+
+.choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  max-width: 920px;
+  margin: 0 auto;
+}
+.choice-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  padding: 34px 32px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.choice-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.09);
+  border-color: #cbd5e1;
+}
+.choice-card.enterprise {
+  background: linear-gradient(155deg, #111827 0%, #1E293B 100%);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+.choice-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  font-size: 24px;
+  margin-bottom: 20px;
+  background: #EFF6FF;
+  color: var(--blue);
+}
+.choice-card.enterprise .choice-icon {
+  background: rgba(0, 132, 255, 0.2);
+  color: #60A5FA;
+}
+.choice-tag {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--blue);
+  margin-bottom: 8px;
+}
+.choice-card.enterprise .choice-tag { color: #60A5FA; }
+.choice-card h2 { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 10px; }
+.choice-desc { font-size: 15px; color: var(--mute); line-height: 1.55; margin-bottom: 22px; }
+.choice-card.enterprise .choice-desc { color: #CBD5E1; }
+
+.choice-list { list-style: none; display: flex; flex-direction: column; gap: 11px; margin-bottom: 28px; }
+.choice-list li { display: flex; align-items: center; gap: 10px; font-size: 14.5px; }
+.choice-list i { color: #10B981; font-size: 16px; flex-shrink: 0; }
+
+@media (max-width: 780px) {
+  .choice-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="top">
+  <nav class="nav" aria-label="Main Navigation">
+    <a href="{% url 'landing' %}" class="logo"><span class="mark"></span>BrandNest</a>
+    <div class="nav-actions">
+      <a class="pill light" href="{% url 'landing' %}"><i class="bi bi-arrow-left"></i> Back</a>
+      {% if user.is_authenticated %}
+      <a class="pill light" href="{% url 'card_list' %}">My Cards</a>
+      <a class="pill" href="{% url 'logout' %}">Log Out</a>
+      {% else %}
+      <a class="pill light" href="{% url 'login' %}">Log In</a>
+      <a class="pill" href="{% url 'signup' %}">Sign Up</a>
+      {% endif %}
+    </div>
+  </nav>
+</div>
+
+<main class="main-section">
+  <div class="wrap">
+    <div class="header-block">
+      <div class="eyebrow"><span class="dot"></span> Digital Business Card Builder</div>
+      <h1>How would you like to build your business card?</h1>
+      <p>Choose whether you are creating a personal digital card for yourself or managing a team bundle for your company.</p>
+    </div>
+
+    <div class="choice-grid">
+      <!-- Option 1: Personal Use -->
+      <div class="choice-card">
+        <div>
+          <div class="choice-icon"><i class="bi bi-person-badge"></i></div>
+          <div class="choice-tag">Individual</div>
+          <h2>For Personal Use</h2>
+          <div style="display:flex;align-items:baseline;gap:8px;margin:10px 0 16px;">
+            <span style="font-size:32px;font-weight:800;color:var(--ink);letter-spacing:-0.03em;">₹499</span>
+            <span style="font-size:14px;color:var(--mute);font-weight:600;">/ one-time lifetime</span>
+          </div>
+          <p class="choice-desc">
+            Perfect for entrepreneurs, freelancers, and professionals building their own digital card.
+          </p>
+          <ul class="choice-list">
+            <li><i class="bi bi-check-circle-fill"></i> Log in or sign up to start building</li>
+            <li><i class="bi bi-check-circle-fill"></i> Digital Card (₹499) or Custom Smart NFC Card Bundle (₹999)</li>
+            <li><i class="bi bi-check-circle-fill"></i> Interactive mobile preview &amp; live QR code</li>
+            <li><i class="bi bi-check-circle-fill"></i> Payments, brochure, socials &amp; vCard export</li>
+          </ul>
+        </div>
+        <a href="{% url 'card_builder' %}" class="pill full" id="btnChoosePersonal">
+          <span>Continue for Personal Use</span>
+          <i class="bi bi-arrow-right"></i>
+        </a>
+      </div>
+
+      <!-- Option 2: Enterprise -->
+      <div class="choice-card enterprise">
+        <div>
+          <div class="choice-icon"><i class="bi bi-buildings"></i></div>
+          <div class="choice-tag">Teams &amp; Companies</div>
+          <h2>For Enterprise</h2>
+          <p class="choice-desc">
+            Start with a 5 business card bundle for you and your team, and easily add more cards one-by-one anytime.
+          </p>
+          <ul class="choice-list">
+            <li><i class="bi bi-check-circle-fill"></i> Starter 5-card bundle + add individual cards anytime</li>
+            <li><i class="bi bi-check-circle-fill"></i> Same powerful BrandNest card builder per member</li>
+            <li><i class="bi bi-check-circle-fill"></i> Expand your card bundle anytime (+1, +2, etc.)</li>
+          </ul>
+        </div>
+        <a href="{% url 'enterprise_company' %}" class="pill blue full" id="btnChooseEnterprise">
+          <span>Choose Enterprise Bundle</span>
+          <i class="bi bi-arrow-right"></i>
+        </a>
+      </div>
+    </div>
+  </div>
+</main>
+<script>
+  document.addEventListener('click', function(e) {
+    const a = e.target.closest('a');
+    if (a && a.getAttribute('href') && a.getAttribute('href').includes('logout')) {
+      try {
+        Object.keys(localStorage).forEach(function(k) {
+          if (k.startsWith('brandnest_card_draft')) {
+            localStorage.removeItem(k);
+          }
+        });
+      } catch(err) {}
+    }
+  });
+</script>
+</body>
+</html>
+

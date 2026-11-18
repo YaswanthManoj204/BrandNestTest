@@ -1,0 +1,221 @@
+{% extends "dashboard/base_dashboard.html" %}
+
+{% block title %}Enterprise Users{% endblock %}
+
+{% block dashboard_content %}
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+  <div>
+    <h1 style="font-size:26px;font-weight:800;color:#0F172A;margin:0 0 4px;">Users</h1>
+    <p style="font-size:13.5px;color:#64748B;margin:0;">Directory of team members, cardholders, and enterprise accounts.</p>
+  </div>
+
+  <div class="d-flex align-items-center gap-2">
+    <button type="button" class="btn-dash-outline" onclick="document.getElementById('userSearchInput').focus()">
+      <i class="bi bi-funnel"></i> Filters
+    </button>
+    <button type="button" class="btn-dash-primary" data-bs-toggle="modal" data-bs-target="#newUserModal">
+      <i class="bi bi-plus-lg"></i> Add User
+    </button>
+  </div>
+</div>
+
+<!-- 4 KPI Blocks -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3">
+    <div class="kpi-card">
+      <div class="kpi-card-title">Total Users</div>
+      <div class="kpi-card-value">{{ total_users_count|default:0 }}</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="kpi-card">
+      <div class="kpi-card-title">Today</div>
+      <div class="kpi-card-value">{{ users_today|default:0 }}</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="kpi-card">
+      <div class="kpi-card-title">This Month</div>
+      <div class="kpi-card-value">{{ users_month|default:0 }}</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="kpi-card">
+      <div class="kpi-card-title">Last Week</div>
+      <div class="kpi-card-value">{{ users_week|default:0 }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- User Table Wrap -->
+<div class="dash-table-wrap mb-4">
+  <div class="p-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-3" style="background:#FFFFFF;">
+    <div class="position-relative" style="width:100%;max-width:320px;">
+      <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size:13px;"></i>
+      <input type="text" id="userSearchInput" class="form-control form-control-sm ps-5" placeholder="Search User" style="border-radius:10px;font-size:13px;" onkeyup="filterUsersTable()">
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+      <span style="font-size:12.5px;color:#64748B;">Rows per page:</span>
+      <select class="form-select form-select-sm" style="width:auto;border-radius:8px;font-size:12.5px;">
+        <option>20</option>
+        <option>50</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="dash-table" id="usersTable">
+      <thead>
+        <tr>
+          <th>User <i class="bi bi-chevron-expand"></i></th>
+          <th>Team</th>
+          <th>Role</th>
+          <th>Status</th>
+          <th>Date Added <i class="bi bi-chevron-expand"></i></th>
+          <th>Expiry Date</th>
+          <th>Auto Renew</th>
+          <th style="text-align:right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users_list %}
+          <tr>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <div style="width:36px;height:36px;border-radius:50%;background:#0284C7;color:#FFFFFF;display:grid;place-items:center;font-weight:700;font-size:13px;flex-shrink:0;">
+                  {{ u.first_name|default:u.username|slice:":1"|upper }}
+                </div>
+                <div>
+                  <strong style="color:#0F172A;font-size:13.5px;display:block;">
+                    {{ u.get_full_name|default:u.username }}
+                  </strong>
+                  <small style="color:#64748B;font-size:11.5px;">
+                    {{ u.email }}
+                    {% if u.cards.first %}
+                      &bull; <a href="{% url 'card_standalone' slug=u.cards.first.slug %}" target="_blank" class="text-primary text-decoration-none">{{ u.cards.first.slug }}.brandnest.io</a>
+                    {% endif %}
+                  </small>
+                </div>
+              </div>
+            </td>
+            <td>
+              {% if u.teams.first %}
+                <span class="badge bg-light text-dark border px-2 py-1" style="font-size:11.5px;">{{ u.teams.first.name }}</span>
+              {% else %}
+                <button type="button" class="btn btn-sm btn-light border p-1 rounded-circle" style="width:24px;height:24px;display:inline-grid;place-items:center;" title="Assign Team" onclick="alert('Assign team in Teams tab.');">
+                  <i class="bi bi-plus" style="font-size:12px;"></i>
+                </button>
+              {% endif %}
+            </td>
+            <td>
+              <span class="badge bg-light text-secondary border px-2 py-1" style="font-size:11.5px;">
+                {% if u.is_superuser %}Admin{% else %}Member{% endif %}
+              </span>
+            </td>
+            <td>
+              <span style="color:#10B981;font-weight:700;font-size:12px;">Active</span>
+            </td>
+            <td style="color:#64748B;font-size:13px;">
+              {{ u.date_joined|date:"j M Y" }}
+            </td>
+            <td style="color:#64748B;font-size:13px;">
+              {{ u.date_joined|date:"j M, Y" }}
+            </td>
+            <td>
+              <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" role="switch" checked>
+              </div>
+            </td>
+            <td style="text-align:right;">
+              <div class="d-inline-flex align-items-center gap-1">
+                {% if u.cards.first %}
+                  <a href="{% url 'card_edit' card_id=u.cards.first.card_id %}" class="btn btn-sm btn-link text-secondary p-1" title="Edit Card">
+                    <i class="bi bi-pencil"></i>
+                  </a>
+                  <a href="{% url 'card_standalone' slug=u.cards.first.slug %}" target="_blank" class="btn btn-sm btn-link text-secondary p-1" title="View Card">
+                    <i class="bi bi-eye"></i>
+                  </a>
+                {% endif %}
+                <button type="button" class="btn btn-sm btn-link text-secondary p-1">
+                  <i class="bi bi-three-dots-vertical"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="8" class="text-center py-5 text-muted" style="font-size:13px;">
+              No users registered yet.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="p-3 border-top d-flex align-items-center justify-content-between flex-wrap gap-2" style="background:#FAFAFA;font-size:13px;color:#64748B;">
+    <div>Showing 1 - {{ users_list|length }} of {{ users_list|length }} results</div>
+    <div>
+      <span class="badge bg-success px-3 py-2" style="border-radius:8px;">1</span>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: New User -->
+<div class="modal fade" id="newUserModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg" style="border-radius:20px;overflow:hidden;">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold" style="font-size:18px;">Add New Enterprise User</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="{% url 'dashboard_users_add' %}">
+        {% csrf_token %}
+        <div class="modal-body p-4">
+          <div class="mb-3">
+            <label class="form-label small fw-bold text-secondary">Username *</label>
+            <input type="text" name="username" class="form-control" required style="border-radius:10px;font-size:13.5px;" placeholder="e.g. sarah_advisory">
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-bold text-secondary">Full Name</label>
+            <input type="text" name="full_name" class="form-control" style="border-radius:10px;font-size:13.5px;" placeholder="e.g. Sarah Jenkins">
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-bold text-secondary">Email Address *</label>
+            <input type="email" name="email" class="form-control" required style="border-radius:10px;font-size:13.5px;" placeholder="sarah@company.com">
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-bold text-secondary">Assign Team</label>
+            <select name="team_id" class="form-select" style="border-radius:10px;font-size:13.5px;">
+              <option value="">No Team</option>
+              {% for t in teams %}
+                <option value="{{ t.id }}">{{ t.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer border-0 pt-0 px-4 pb-4">
+          <button type="button" class="btn btn-sm btn-light border rounded-pill px-3" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn-dash-primary rounded-pill px-4">Create User</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function filterUsersTable() {
+    const input = document.getElementById('userSearchInput');
+    const filter = input.value.toLowerCase();
+    const rows = document.querySelectorAll('#usersTable tbody tr');
+    rows.forEach(row => {
+      const text = row.textContent.toLowerCase();
+      row.style.display = text.includes(filter) ? '' : 'none';
+    });
+  }
+</script>
+{% endblock %}
+

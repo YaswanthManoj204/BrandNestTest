@@ -1,0 +1,193 @@
+{% extends "enterprise_admin/base_enterprise_admin.html" %}
+
+{% block title %}Enterprise Employee Cards{% endblock %}
+
+{% block enterprise_content %}
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+  <div>
+    <h1 style="font-size:26px;font-weight:800;color:#0F172A;margin:0 0 4px;">Enterprise Employee Cards</h1>
+    <p style="font-size:13.5px;color:#64748B;margin:0;">Master directory of all digital business cards provisioned for enterprise companies and corporate employees.</p>
+  </div>
+
+  <button type="button" class="btn-ent-primary" data-bs-toggle="modal" data-bs-target="#issueCardModal">
+    <i class="bi bi-person-plus-fill"></i> Issue Employee Card
+  </button>
+</div>
+
+<!-- Filter Toolbar -->
+<div class="card border-0 shadow-sm p-3 mb-4 rounded-4" style="background:#FFFFFF;border:1px solid #E2E8F0 !important;">
+  <form method="get" class="row g-2 align-items-center">
+    <div class="col-md-5">
+      <select name="company" class="form-select" onchange="this.form.submit()">
+        <option value="" {% if not selected_company_id %}selected{% endif %}>All Enterprise Companies ({{ total_count }})</option>
+        {% for comp in companies %}
+          <option value="{{ comp.id }}" {% if selected_company_id == comp.id|stringformat:"s" %}selected{% endif %}>
+            {{ comp.name }} ({{ comp.cards_used }}/{{ comp.card_quota }})
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-5">
+      <input type="text" name="q" class="form-control" placeholder="Search employee name, title, or email..." value="{{ search_query|default:'' }}">
+    </div>
+    <div class="col-auto">
+      <button type="submit" class="btn btn-dark rounded-pill px-3">Search</button>
+      {% if selected_company_id or search_query %}
+        <a href="{% url 'enterprise_admin_cards' %}" class="btn btn-outline-secondary rounded-pill px-3">Reset</a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+<!-- Employee Cards Table -->
+<div class="ent-table-card">
+  <div class="table-responsive">
+    <table class="ent-table">
+      <thead>
+        <tr>
+          <th>Employee / Card</th>
+          <th>Enterprise Company</th>
+          <th>Contact Info</th>
+          <th>Views / Scans</th>
+          <th>Created Date</th>
+          <th>Status</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for card in cards %}
+          <tr>
+            <td>
+              <div class="d-flex align-items-center gap-3">
+                <div style="width:38px;height:38px;border-radius:10px;background:{{ card.theme_color|default:'#4F46E5' }};color:#FFFFFF;display:grid;place-items:center;font-weight:700;font-size:14px;box-shadow:0 2px 6px rgba(0,0,0,0.12);">
+                  {% if card.logo %}
+                    <img src="{{ card.logo.url }}" alt="Logo" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">
+                  {% else %}
+                    {{ card.owner_name|default:card.business_name|slice:":1"|upper }}
+                  {% endif %}
+                </div>
+                <div>
+                  <strong style="color:#0F172A;font-size:14px;display:block;">{{ card.owner_name|default:card.business_name }}</strong>
+                  <small style="color:#64748B;">{{ card.layout_config.role_title|default:card.tagline|default:"Team Member" }}</small>
+                </div>
+              </div>
+            </td>
+            <td>
+              <span class="badge bg-light text-dark border px-2 py-1 fw-bold" style="font-size:12px;">
+                <i class="bi bi-building me-1 text-primary"></i> {{ card.enterprise_company.name|default:card.business_name }}
+              </span>
+            </td>
+            <td>
+              <small class="d-block text-dark">{{ card.email|default:"-" }}</small>
+              <small class="text-secondary">{{ card.phone|default:"" }}</small>
+            </td>
+            <td>
+              <span class="fw-bold text-dark">{{ card.views_count }}</span>
+              <small class="text-muted" style="font-size:11px;">views</small>
+            </td>
+            <td>
+              <small class="text-secondary">{{ card.created_at|date:"M d, Y" }}</small>
+            </td>
+            <td>
+              {% if card.is_published %}
+                <span class="badge-ent-active">Published</span>
+              {% else %}
+                <span class="badge bg-secondary-subtle text-secondary px-2 py-1 rounded-pill" style="font-size:11px;">Draft</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              <div class="btn-group btn-group-sm">
+                <a href="{% url 'card_standalone' slug=card.slug %}" target="_blank" class="btn btn-outline-primary" title="Live Preview">
+                  <i class="bi bi-eye"></i> View
+                </a>
+                <a href="{% url 'card_edit' card_id=card.card_id %}" class="btn btn-outline-secondary" title="Edit in Builder">
+                  <i class="bi bi-pencil"></i>
+                </a>
+                <a href="{% url 'card_qr_image' slug=card.slug %}" target="_blank" class="btn btn-outline-dark" title="Download QR">
+                  <i class="bi bi-qr-code"></i>
+                </a>
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="7" class="text-center py-5 text-muted">
+              <i class="bi bi-person-vcard" style="font-size:36px;display:block;margin-bottom:8px;"></i>
+              No employee cards found. Use "Issue Employee Card" above to provision cards for any company.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal: Issue Employee Card -->
+<div class="modal fade" id="issueCardModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content border-0 shadow rounded-4">
+      <form method="post" action="{% url 'enterprise_admin_card_issue' %}">
+        {% csrf_token %}
+        <div class="modal-header border-bottom">
+          <h5 class="modal-title fw-bold"><i class="bi bi-person-plus-fill text-primary me-2"></i> Issue Employee Digital Card</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body p-4">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label small fw-bold">Select Enterprise Company <span class="text-danger">*</span></label>
+              <select name="company_id" class="form-select" required>
+                <option value="">-- Choose Company --</option>
+                {% for comp in companies %}
+                  <option value="{{ comp.id }}">
+                    {{ comp.name }} (Quota: {{ comp.cards_used }}/{{ comp.card_quota }})
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold">Employee Full Name <span class="text-danger">*</span></label>
+              <input type="text" name="owner_name" class="form-control" placeholder="Sarah Jenkins" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold">Job Title / Designation <span class="text-danger">*</span></label>
+              <input type="text" name="role_title" class="form-control" placeholder="Senior Vice President" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold">Card Display Name (Business Name)</label>
+              <input type="text" name="business_name" class="form-control" placeholder="Leave blank to use company name">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold">Work Email <span class="text-danger">*</span></label>
+              <input type="email" name="email" class="form-control" placeholder="sarah.jenkins@company.com" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold">Direct Phone Number</label>
+              <input type="text" name="phone" class="form-control" placeholder="+91 98765 43210">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold">Brand Color Theme</label>
+              <select name="theme_color" class="form-select">
+                <option value="#4F46E5" selected>Indigo Blue (#4F46E5)</option>
+                <option value="#10B981">Emerald Green (#10B981)</option>
+                <option value="#0EA5E9">Sky Blue (#0EA5E9)</option>
+                <option value="#8B5CF6">Purple Accent (#8B5CF6)</option>
+                <option value="#0F172A">Midnight Slate (#0F172A)</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold">Tagline / Motto</label>
+              <input type="text" name="tagline" class="form-control" placeholder="Excellence in Enterprise Solutions">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer border-top bg-light rounded-bottom-4">
+          <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary rounded-pill px-4 fw-bold">Generate Employee Card</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

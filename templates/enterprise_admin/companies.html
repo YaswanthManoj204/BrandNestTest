@@ -1,0 +1,227 @@
+{% extends "enterprise_admin/base_enterprise_admin.html" %}
+
+{% block title %}Enterprise Companies & Quotas{% endblock %}
+
+{% block enterprise_content %}
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+  <div>
+    <h1 style="font-size:26px;font-weight:800;color:#0F172A;margin:0 0 4px;">Enterprise Companies & Tenants</h1>
+    <p style="font-size:13.5px;color:#64748B;margin:0;">Manage B2B organizations, allocate card limits, top up quotas, and control tenant account status.</p>
+  </div>
+
+  <button type="button" class="btn-ent-primary" data-bs-toggle="modal" data-bs-target="#createCompanyModal">
+    <i class="bi bi-plus-circle"></i> Create Enterprise Client
+  </button>
+</div>
+
+<!-- Search and Filter Bar -->
+<div class="card border-0 shadow-sm p-3 mb-4 rounded-4" style="background:#FFFFFF;border:1px solid #E2E8F0 !important;">
+  <form method="get" class="row g-2 align-items-center">
+    <div class="col-md-6 col-lg-5">
+      <div class="input-group">
+        <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-search"></i></span>
+        <input type="text" name="q" class="form-control border-start-0" placeholder="Search company name, head, email, or tax ID..." value="{{ search_query|default:'' }}">
+      </div>
+    </div>
+    <div class="col-md-4 col-lg-3">
+      <select name="status" class="form-select" onchange="this.form.submit()">
+        <option value="" {% if not status_filter %}selected{% endif %}>All Statuses</option>
+        <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active Only</option>
+        <option value="suspended" {% if status_filter == 'suspended' %}selected{% endif %}>Suspended Only</option>
+      </select>
+    </div>
+    <div class="col-auto">
+      <button type="submit" class="btn btn-dark rounded-pill px-3">Filter</button>
+      {% if search_query or status_filter %}
+        <a href="{% url 'enterprise_admin_companies' %}" class="btn btn-outline-secondary rounded-pill px-3">Clear</a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+<!-- Companies Table -->
+<div class="ent-table-card">
+  <div class="table-responsive">
+    <table class="ent-table">
+      <thead>
+        <tr>
+          <th>Company Name</th>
+          <th>Lead / Contact</th>
+          <th>Plan Tier</th>
+          <th>Card Quota & Usage</th>
+          <th>Tax ID</th>
+          <th>Status</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for comp in companies %}
+          <tr>
+            <td>
+              <strong style="color:#0F172A;font-size:14px;display:block;">{{ comp.name }}</strong>
+              <small class="text-muted"><i class="bi bi-link-45deg"></i> {{ comp.website|default:"No website" }}</small>
+            </td>
+            <td>
+              <div class="fw-semibold text-dark">{{ comp.head_name|default:"Not specified" }}</div>
+              <small class="text-muted d-block">{{ comp.email|default:"-" }}</small>
+              <small class="text-secondary">{{ comp.phone|default:"" }}</small>
+            </td>
+            <td>
+              <span class="badge-tier-popular">{{ comp.plan_tier }}</span>
+              <small class="d-block text-muted mt-1">₹{{ comp.total_paid }} collected</small>
+            </td>
+            <td>
+              <div class="d-flex align-items-center gap-2 mb-1">
+                <div class="progress flex-grow-1" style="height:7px;width:90px;background:#E2E8F0;border-radius:99px;">
+                  <div class="progress-bar {% if comp.usage_percentage >= 90 %}bg-danger{% elif comp.usage_percentage >= 70 %}bg-warning{% else %}bg-success{% endif %}" style="width: {{ comp.usage_percentage }}%;"></div>
+                </div>
+                <small class="fw-bold text-dark">{{ comp.cards_used }} / {{ comp.card_quota }}</small>
+              </div>
+              <small class="text-muted" style="font-size:11px;">{{ comp.cards_remaining }} remaining</small>
+            </td>
+            <td>
+              <code style="font-size:11.5px;color:#0F172A;">{{ comp.tax_id|default:"N/A" }}</code>
+            </td>
+            <td>
+              {% if comp.is_active %}
+                <span class="badge-ent-active"><i class="bi bi-check-circle-fill me-1"></i> Active</span>
+              {% else %}
+                <span class="badge-ent-suspended"><i class="bi bi-pause-circle-fill me-1"></i> Suspended</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              <div class="btn-group btn-group-sm">
+                <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editQuotaModal{{ comp.id }}" title="Top Up / Edit Quota">
+                  <i class="bi bi-plus-slash-minus"></i> Quota
+                </button>
+                <a href="{% url 'enterprise_admin_cards' %}?company={{ comp.id }}" class="btn btn-outline-primary" title="View Cards">
+                  <i class="bi bi-person-badge"></i>
+                </a>
+                <form method="post" action="{% url 'enterprise_admin_company_toggle' company_id=comp.id %}" style="display:inline;">
+                  {% csrf_token %}
+                  <button type="submit" class="btn {% if comp.is_active %}btn-outline-danger{% else %}btn-outline-success{% endif %}" title="{% if comp.is_active %}Suspend Company{% else %}Activate Company{% endif %}">
+                    <i class="bi {% if comp.is_active %}bi-pause-circle{% else %}bi-play-circle{% endif %}"></i>
+                  </button>
+                </form>
+              </div>
+
+              <!-- Edit Quota Modal for this company -->
+              <div class="modal fade text-start" id="editQuotaModal{{ comp.id }}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                  <div class="modal-content border-0 shadow rounded-4">
+                    <form method="post" action="{% url 'enterprise_admin_company_quota' company_id=comp.id %}">
+                      {% csrf_token %}
+                      <div class="modal-header border-bottom">
+                        <h5 class="modal-title fw-bold">Update Quota: {{ comp.name }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                      </div>
+                      <div class="modal-body p-4">
+                        <div class="alert alert-info py-2 px-3 mb-3" style="font-size:12.5px;">
+                          Currently used: <b>{{ comp.cards_used }}</b> cards. Quota cannot be reduced below used count.
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label small fw-bold">New Card Limit (Quota)</label>
+                          <input type="number" name="card_quota" class="form-control" min="{{ comp.cards_used }}" value="{{ comp.card_quota }}" required>
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label small fw-bold">Plan Tier Label</label>
+                          <input type="text" name="plan_tier" class="form-control" value="{{ comp.plan_tier }}">
+                        </div>
+                        <div class="mb-3">
+                          <label class="form-label small fw-bold">Quick Quota Top-Up</label>
+                          <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="this.form.card_quota.value = parseInt(this.form.card_quota.value || 0) + 5;">+5 Cards</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="this.form.card_quota.value = parseInt(this.form.card_quota.value || 0) + 10;">+10 Cards</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="this.form.card_quota.value = parseInt(this.form.card_quota.value || 0) + 25;">+25 Cards</button>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="modal-footer border-top bg-light rounded-bottom-4">
+                        <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary rounded-pill px-4 fw-bold">Save Quota</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="7" class="text-center py-5 text-muted">
+              <i class="bi bi-buildings" style="font-size:36px;display:block;margin-bottom:8px;"></i>
+              No enterprise companies found matching your criteria.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal: Create New Enterprise Company -->
+<div class="modal fade" id="createCompanyModal" tabindex="-1" aria-labelledby="createCompanyModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content border-0 shadow rounded-4">
+      <form method="post" action="{% url 'enterprise_admin_company_create' %}">
+        {% csrf_token %}
+        <div class="modal-header border-bottom">
+          <h5 class="modal-title fw-bold" id="createCompanyModalLabel"><i class="bi bi-building-add text-primary me-2"></i> Provision New Enterprise Company</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body p-4">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label small fw-bold">Company Name <span class="text-danger">*</span></label>
+              <input type="text" name="name" class="form-control" placeholder="Acme Global Corporation" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold">Company Head / Primary Admin <span class="text-danger">*</span></label>
+              <input type="text" name="head_name" class="form-control" placeholder="Jane Doe" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold">Work Email <span class="text-danger">*</span></label>
+              <input type="email" name="email" class="form-control" placeholder="admin@acme.com" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold">Phone Number</label>
+              <input type="text" name="phone" class="form-control" placeholder="+91 98765 43210">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold">Initial Card Quota <span class="text-danger">*</span></label>
+              <input type="number" name="card_quota" class="form-control" value="10" min="1" required>
+              <small class="text-muted">Allowed number of digital business cards</small>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold">Plan Tier</label>
+              <select name="plan_tier" class="form-select">
+                <option value="Starter (5 Cards)">Starter (5 Cards)</option>
+                <option value="Most Popular (10 Cards)" selected>Most Popular (10 Cards)</option>
+                <option value="Best Value (15 Cards)">Best Value (15 Cards)</option>
+                <option value="Enterprise Custom (50+ Cards)">Enterprise Custom (50+ Cards)</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold">Tax ID / GST Number</label>
+              <input type="text" name="tax_id" class="form-control" placeholder="32AAVCM2073R1ZQ">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-bold">Company Website</label>
+              <input type="url" name="website" class="form-control" placeholder="https://www.acme.com">
+            </div>
+            <div class="col-12">
+              <label class="form-label small fw-bold">Administrative Notes (Internal)</label>
+              <textarea name="notes" class="form-control" rows="2" placeholder="Onboarded via sales enterprise tier..."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer border-top bg-light rounded-bottom-4">
+          <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary rounded-pill px-4 fw-bold">Create Enterprise Tenant</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,51 @@
+{% extends "dashboard/base_dashboard.html" %}
+
+{% block title %}Integrations{% endblock %}
+
+{% block dashboard_content %}
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+  <div>
+    <h1 style="font-size:26px;font-weight:800;color:#0F172A;margin:0 0 4px;">Integrations</h1>
+    <p style="font-size:13.5px;color:#64748B;margin:0;">Connect your digital business cards with your favorite CRM, email marketing, and automation tools.</p>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-md-6 col-lg-4">
+    <div class="card border-0 shadow-sm p-4 rounded-4 h-100" style="background:#FFFFFF;border:1px solid #E2E8F0 !important;">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <i class="bi bi-link-45deg fs-2 text-primary"></i>
+        <span class="badge-status-active">Connected</span>
+      </div>
+      <h5 class="fw-bold text-dark mb-1">Webhook API</h5>
+      <p class="text-secondary small mb-3">Post incoming leads and card scan events to your custom HTTP endpoint or webhook URL in real time.</p>
+      <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill w-100" onclick="alert('Webhook active: posting to /api/v1/');">Configure</button>
+    </div>
+  </div>
+
+  <div class="col-md-6 col-lg-4">
+    <div class="card border-0 shadow-sm p-4 rounded-4 h-100" style="background:#FFFFFF;border:1px solid #E2E8F0 !important;">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <i class="bi bi-google fs-2 text-danger"></i>
+        <span class="badge bg-light text-secondary border px-2 py-1 small">Available</span>
+      </div>
+      <h5 class="fw-bold text-dark mb-1">Google Contacts</h5>
+      <p class="text-secondary small mb-3">Automatically sync leads and exchanged contact cards into your Google Contacts address book.</p>
+      <button type="button" class="btn btn-sm btn-outline-success rounded-pill w-100" onclick="alert('Google Contacts OAuth sync ready to connect.');">Connect Google</button>
+    </div>
+  </div>
+
+  <div class="col-md-6 col-lg-4">
+    <div class="card border-0 shadow-sm p-4 rounded-4 h-100" style="background:#FFFFFF;border:1px solid #E2E8F0 !important;">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <i class="bi bi-lightning-charge fs-2 text-warning"></i>
+        <span class="badge bg-light text-secondary border px-2 py-1 small">Available</span>
+      </div>
+      <h5 class="fw-bold text-dark mb-1">Zapier Automation</h5>
+      <p class="text-secondary small mb-3">Trigger automated workflows in 5,000+ apps whenever someone taps your card or sends an inquiry.</p>
+      <button type="button" class="btn btn-sm btn-outline-success rounded-pill w-100" onclick="alert('Zapier integration key copied.');">Connect Zapier</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

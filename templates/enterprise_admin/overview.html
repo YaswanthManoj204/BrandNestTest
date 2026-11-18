@@ -1,0 +1,184 @@
+{% extends "enterprise_admin/base_enterprise_admin.html" %}
+
+{% block title %}Enterprise Platform Overview{% endblock %}
+
+{% block enterprise_content %}
+<!-- Header Bar -->
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+  <div>
+    <h1 style="font-size:26px;font-weight:800;color:#0F172A;margin:0 0 4px;">Enterprise Platform Overview</h1>
+    <p style="font-size:13.5px;color:#64748B;margin:0;">Global command center for B2B company tenants, card quotas, employee rosters, and revenue pipeline.</p>
+  </div>
+
+  <div class="d-flex gap-2">
+    <a href="{% url 'enterprise_admin_companies' %}" class="btn-ent-primary">
+      <i class="bi bi-plus-circle"></i> Add Enterprise Company
+    </a>
+  </div>
+</div>
+
+<!-- 4 Key Metric Cards -->
+<div class="row g-4 mb-4">
+  <div class="col-sm-6 col-xl-3">
+    <div class="metric-card">
+      <div class="metric-header">
+        <span class="metric-title">Enterprise Clients</span>
+        <div class="metric-icon-wrap metric-icon-indigo"><i class="bi bi-buildings"></i></div>
+      </div>
+      <div class="metric-value">{{ total_companies|default:0 }}</div>
+      <div class="metric-hint">Active organizations & tenants</div>
+    </div>
+  </div>
+
+  <div class="col-sm-6 col-xl-3">
+    <div class="metric-card">
+      <div class="metric-header">
+        <span class="metric-title">Employee Cards Issued</span>
+        <div class="metric-icon-wrap metric-icon-emerald"><i class="bi bi-person-badge"></i></div>
+      </div>
+      <div class="metric-value">{{ total_cards_used|default:0 }} <span style="font-size:16px;color:#94A3B8;font-weight:600;">/ {{ total_capacity|default:0 }}</span></div>
+      <div class="metric-hint">{{ capacity_usage_pct|default:0 }}% platform capacity utilized</div>
+    </div>
+  </div>
+
+  <div class="col-sm-6 col-xl-3">
+    <div class="metric-card">
+      <div class="metric-header">
+        <span class="metric-title">B2B Revenue (INR)</span>
+        <div class="metric-icon-wrap metric-icon-amber"><i class="bi bi-currency-rupee"></i></div>
+      </div>
+      <div class="metric-value">₹{{ total_revenue|default:0 }}</div>
+      <div class="metric-hint">Enterprise bundles & quota top-ups</div>
+    </div>
+  </div>
+
+  <div class="col-sm-6 col-xl-3">
+    <div class="metric-card">
+      <div class="metric-header">
+        <span class="metric-title">Enterprise Leads Captured</span>
+        <div class="metric-icon-wrap metric-icon-blue"><i class="bi bi-funnel"></i></div>
+      </div>
+      <div class="metric-value">{{ total_leads|default:0 }}</div>
+      <div class="metric-hint">{{ total_scans|default:0 }} total employee card views</div>
+    </div>
+  </div>
+</div>
+
+<!-- Two Column Layout: Companies Directory & Developer Health -->
+<div class="row g-4 mb-4">
+  <!-- Left: Enterprise Companies Summary Table -->
+  <div class="col-lg-8">
+    <div class="ent-table-card">
+      <div class="ent-table-header">
+        <div>
+          <h5 style="font-size:16px;font-weight:800;color:#0F172A;margin:0 0 2px;">Registered Enterprise Clients</h5>
+          <small style="color:#64748B;">Overview of active company organizations and their allocated quota</small>
+        </div>
+        <a href="{% url 'enterprise_admin_companies' %}" class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-bold" style="font-size:12px;">
+          View All &rarr;
+        </a>
+      </div>
+
+      <div class="table-responsive">
+        <table class="ent-table">
+          <thead>
+            <tr>
+              <th>Company</th>
+              <th>Contact / Head</th>
+              <th>Tier</th>
+              <th>Quota Usage</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for comp in companies %}
+              <tr>
+                <td>
+                  <strong style="color:#0F172A;display:block;">{{ comp.name }}</strong>
+                  <small style="color:#64748B;">{{ comp.email|default:"No email" }}</small>
+                </td>
+                <td>
+                  <div>{{ comp.head_name|default:"Not specified" }}</div>
+                  <small style="color:#94A3B8;">{{ comp.phone|default:"-" }}</small>
+                </td>
+                <td>
+                  <span class="badge-tier-starter">{{ comp.plan_tier }}</span>
+                </td>
+                <td>
+                  <div class="d-flex align-items-center gap-2">
+                    <div class="progress flex-grow-1" style="height:6px;width:70px;background:#E2E8F0;border-radius:99px;">
+                      <div class="progress-bar bg-success" style="width: {{ comp.usage_percentage }}%;"></div>
+                    </div>
+                    <small class="fw-bold text-dark">{{ comp.cards_used }}/{{ comp.card_quota }}</small>
+                  </div>
+                </td>
+                <td>
+                  {% if comp.is_active %}
+                    <span class="badge-ent-active">Active</span>
+                  {% else %}
+                    <span class="badge-ent-suspended">Suspended</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <a href="{% url 'enterprise_admin_cards' %}?company={{ comp.id }}" class="btn btn-sm btn-light border py-1 px-2.5 rounded-pill" title="View Cards">
+                    <i class="bi bi-person-badge"></i> Cards
+                  </a>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="6" class="text-center py-4 text-muted">
+                  <i class="bi bi-buildings" style="font-size:32px;display:block;margin-bottom:8px;"></i>
+                  No enterprise companies created yet.
+                  <div class="mt-2">
+                    <a href="{% url 'enterprise_admin_companies' %}" class="btn btn-sm btn-primary rounded-pill px-3">
+                      <i class="bi bi-plus-lg me-1"></i> Provision First Enterprise
+                    </a>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: Enterprise Quick Actions Widget -->
+  <div class="col-lg-4">
+    <div class="card border-0 shadow-sm p-4 rounded-4" style="background:#FFFFFF;border:1px solid #E2E8F0 !important;">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <h6 class="fw-bold text-dark mb-0"><i class="bi bi-lightning-charge-fill text-warning me-1"></i> Quick Actions</h6>
+        <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1" style="font-size:10.5px;font-weight:700;">ENTERPRISE</span>
+      </div>
+
+      <div class="d-grid gap-2 mb-3">
+        <a href="{% url 'enterprise_admin_companies' %}" class="btn btn-sm btn-outline-dark rounded-3 py-2 text-start px-3 d-flex align-items-center justify-content-between">
+          <span><i class="bi bi-building-add text-primary me-2"></i> Provision New Company</span>
+          <i class="bi bi-chevron-right text-muted" style="font-size:11px;"></i>
+        </a>
+        <a href="{% url 'enterprise_admin_cards' %}" class="btn btn-sm btn-outline-dark rounded-3 py-2 text-start px-3 d-flex align-items-center justify-content-between">
+          <span><i class="bi bi-person-plus text-success me-2"></i> Issue Employee Card</span>
+          <i class="bi bi-chevron-right text-muted" style="font-size:11px;"></i>
+        </a>
+        <a href="{% url 'enterprise_admin_teams' %}" class="btn btn-sm btn-outline-dark rounded-3 py-2 text-start px-3 d-flex align-items-center justify-content-between">
+          <span><i class="bi bi-folder-plus text-info me-2"></i> Create Department</span>
+          <i class="bi bi-chevron-right text-muted" style="font-size:11px;"></i>
+        </a>
+        <a href="{% url 'enterprise_admin_leads_export' %}" class="btn btn-sm btn-outline-dark rounded-3 py-2 text-start px-3 d-flex align-items-center justify-content-between">
+          <span><i class="bi bi-download text-dark me-2"></i> Export All Inbound Leads</span>
+          <i class="bi bi-chevron-right text-muted" style="font-size:11px;"></i>
+        </a>
+      </div>
+
+      <div class="pt-3 border-top">
+        <a href="{% url 'dashboard_overview' %}" class="btn btn-sm btn-success w-100 rounded-pill py-2 fw-bold" style="background:#10B981;border:none;">
+          <i class="bi bi-person-vcard me-1"></i> Switch to Personal Dashboard &rarr;
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

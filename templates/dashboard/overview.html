@@ -1,0 +1,210 @@
+{% extends "dashboard/base_dashboard.html" %}
+
+{% block title %}Overview{% endblock %}
+
+{% block dashboard_content %}
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+  <div>
+    <h1 style="font-size:26px;font-weight:800;color:#0F172A;margin:0 0 4px;">Overview</h1>
+    <p style="font-size:13.5px;color:#64748B;margin:0;">High-level performance metrics, card views, and lead activity.</p>
+  </div>
+
+  <!-- Filter Bar -->
+  <div class="d-flex align-items-center gap-2 flex-wrap">
+    <select class="form-select form-select-sm" id="overviewUserFilter" style="border-radius:10px;font-size:13px;min-width:140px;" onchange="window.location.search='?user='+this.value">
+      <option value="">All Users</option>
+      {% for u in users_list %}
+        <option value="{{ u.id }}" {% if selected_user_id == u.id|stringformat:"s" %}selected{% endif %}>{{ u.get_full_name|default:u.username }}</option>
+      {% endfor %}
+    </select>
+
+    <select class="form-select form-select-sm" style="border-radius:10px;font-size:13px;min-width:130px;">
+      <option selected>Last Week</option>
+      <option>This Month</option>
+      <option>Last 30 Days</option>
+      <option>All Time</option>
+    </select>
+
+    <a href="{% url 'dashboard_overview' %}" class="btn btn-sm btn-outline-secondary rounded-pill" style="font-size:12.5px;padding:6px 14px;">
+      Clear Filters
+    </a>
+  </div>
+</div>
+
+<!-- 4 Key Stat Cards -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3">
+    <div class="kpi-card">
+      <div class="kpi-card-title">
+        <span>Page Views</span>
+        <i class="bi bi-eye text-primary"></i>
+      </div>
+      <div class="kpi-card-value text-dark">{{ total_views|default:0 }}</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="kpi-card">
+      <div class="kpi-card-title">
+        <span>Clicks</span>
+        <i class="bi bi-cursor text-success"></i>
+      </div>
+      <div class="kpi-card-value text-dark">{{ total_clicks|default:0 }}</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="kpi-card">
+      <div class="kpi-card-title">
+        <span>CTR <i class="bi bi-info-circle ms-1" title="Click-Through Rate"></i></span>
+        <i class="bi bi-percent text-info"></i>
+      </div>
+      <div class="kpi-card-value text-dark">{{ ctr|default:"0%" }}</div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="kpi-card">
+      <div class="kpi-card-title">
+        <span>Leads Generated</span>
+        <i class="bi bi-chat-heart text-danger"></i>
+      </div>
+      <div class="kpi-card-value text-dark">{{ total_leads|default:0 }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- Two-Column Analytics Layout -->
+<div class="row g-4 mb-4">
+  <!-- Left: Activity Chart -->
+  <div class="col-lg-8">
+    <div class="card border-0 shadow-sm p-4 h-100" style="border-radius:18px;border:1px solid #E2E8F0 !important;">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <h5 style="font-size:16px;font-weight:700;color:#0F172A;margin:0;">Activity</h5>
+        <div class="d-flex align-items-center gap-3" style="font-size:12px;color:#64748B;">
+          <span class="d-flex align-items-center gap-1"><span style="width:10px;height:10px;background:#F59E0B;border-radius:50%;display:inline-block;"></span> Views</span>
+          <span class="d-flex align-items-center gap-1"><span style="width:10px;height:10px;background:#10B981;border-radius:50%;display:inline-block;"></span> Clicks</span>
+          <span class="d-flex align-items-center gap-1"><span style="width:10px;height:10px;background:#3B82F6;border-radius:50%;display:inline-block;"></span> Leads</span>
+        </div>
+      </div>
+      <div style="position:relative;height:280px;width:100%;">
+        <canvas id="overviewActivityChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: Top Performers Leaderboard -->
+  <div class="col-lg-4">
+    <div class="card border-0 shadow-sm p-4 h-100" style="border-radius:18px;border:1px solid #E2E8F0 !important;">
+      <h5 style="font-size:16px;font-weight:700;color:#0F172A;margin:0 0 16px;">Top Performers</h5>
+      
+      {% if top_cards %}
+        <div class="d-flex flex-column gap-3">
+          {% for card in top_cards %}
+            <div class="d-flex align-items-center justify-content-between p-2 rounded-3 hover-bg" style="transition:background 0.15s ease;">
+              <div class="d-flex align-items-center gap-3">
+                <span class="fw-bold" style="color:#64748B;font-size:14px;width:16px;">{{ forloop.counter }}</span>
+                <div style="width:36px;height:36px;border-radius:50%;background:#F1F5F9;display:grid;place-items:center;overflow:hidden;flex-shrink:0;">
+                  {% if card.logo %}
+                    <img src="{{ card.logo.url }}" alt="{{ card.business_name }}" style="width:100%;height:100%;object-fit:cover;">
+                  {% elif card.profile_image %}
+                    <img src="{{ card.profile_image.url }}" alt="{{ card.owner_name }}" style="width:100%;height:100%;object-fit:cover;">
+                  {% else %}
+                    <span style="font-size:12px;font-weight:700;color:#10B981;">{{ card.business_name|slice:":1"|upper }}</span>
+                  {% endif %}
+                </div>
+                <div>
+                  <a href="{% url 'card_standalone' slug=card.slug %}" target="_blank" style="text-decoration:none;color:#0F172A;font-weight:700;font-size:13.5px;display:block;">
+                    {{ card.business_name }}
+                  </a>
+                  <small style="color:#64748B;font-size:11.5px;">{{ card.owner_name|default:"Cardholder" }}</small>
+                </div>
+              </div>
+              <span class="badge bg-light text-dark border px-2 py-1" style="font-size:13px;font-weight:700;">
+                {{ card.views_count }}
+              </span>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="text-center py-5 text-muted" style="font-size:13px;">
+          <i class="bi bi-bar-chart fs-2 d-block mb-2 text-secondary"></i>
+          No business cards created yet.
+          <div class="mt-2">
+            <a href="{% url 'card_builder' %}" class="btn btn-sm btn-outline-success rounded-pill">Create First Card</a>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  (function() {
+    const ctx = document.getElementById('overviewActivityChart');
+    if (!ctx) return;
+
+    const chartLabels = {{ chart_labels_json|safe }};
+    const viewsData = {{ chart_views_json|safe }};
+    const clicksData = {{ chart_clicks_json|safe }};
+    const leadsData = {{ chart_leads_json|safe }};
+
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: chartLabels,
+        datasets: [
+          {
+            label: 'Views',
+            data: viewsData,
+            borderColor: '#F59E0B',
+            backgroundColor: 'rgba(245, 158, 11, 0.15)',
+            fill: true,
+            tension: 0.4,
+            borderWidth: 2.5,
+            pointRadius: 4,
+            pointBackgroundColor: '#F59E0B'
+          },
+          {
+            label: 'Clicks',
+            data: clicksData,
+            borderColor: '#10B981',
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            tension: 0.4,
+            pointRadius: 3
+          },
+          {
+            label: 'Leads',
+            data: leadsData,
+            borderColor: '#3B82F6',
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            tension: 0.4,
+            pointRadius: 3
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { precision: 0, font: { size: 11, family: 'Inter' } },
+            grid: { color: '#F1F5F9' }
+          },
+          x: {
+            grid: { display: false },
+            ticks: { font: { size: 11, family: 'Inter' } }
+          }
+        }
+      }
+    });
+  })();
+</script>
+{% endblock %}
+

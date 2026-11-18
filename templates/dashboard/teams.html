@@ -1,0 +1,145 @@
+{% extends "dashboard/base_dashboard.html" %}
+
+{% block title %}Teams{% endblock %}
+
+{% block dashboard_content %}
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+  <div>
+    <h1 style="font-size:26px;font-weight:800;color:#0F172A;margin:0 0 4px;">Teams</h1>
+    <p style="font-size:13.5px;color:#64748B;margin:0;">Organize departments, branches, and cardholder teams.</p>
+  </div>
+
+  <button type="button" class="btn-dash-primary" data-bs-toggle="modal" data-bs-target="#newTeamModal">
+    <i class="bi bi-plus-lg"></i> New Team
+  </button>
+</div>
+
+<div class="dash-table-wrap mb-4">
+  <div class="p-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-3" style="background:#FFFFFF;">
+    <div class="position-relative" style="width:100%;max-width:320px;">
+      <i class="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" style="font-size:13px;"></i>
+      <input type="text" id="teamSearchInput" class="form-control form-control-sm ps-5" placeholder="Search Team" style="border-radius:10px;font-size:13px;" onkeyup="filterTeamsTable()">
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+      <span style="font-size:12.5px;color:#64748B;">Rows per page:</span>
+      <select class="form-select form-select-sm" style="width:auto;border-radius:8px;font-size:12.5px;">
+        <option>20</option>
+        <option>50</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="dash-table" id="teamsTable">
+      <thead>
+        <tr>
+          <th>Team Name <i class="bi bi-chevron-expand"></i></th>
+          <th>Members</th>
+          <th style="text-align:right;">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for team in teams %}
+          <tr>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <div style="width:36px;height:36px;border-radius:50%;background:#10B981;color:#FFFFFF;display:grid;place-items:center;font-weight:700;font-size:14px;flex-shrink:0;">
+                  {{ team.name|slice:":1"|upper }}
+                </div>
+                <strong style="color:#0F172A;font-size:14px;">{{ team.name }}</strong>
+              </div>
+            </td>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <div class="d-flex" style="margin-left:6px;">
+                  {% for member in team.members.all|slice:":3" %}
+                    <div style="width:28px;height:28px;border-radius:50%;background:#E2E8F0;border:2px solid #FFFFFF;margin-left:-6px;display:grid;place-items:center;font-size:11px;font-weight:700;color:#475569;" title="{{ member.username }}">
+                      {{ member.username|slice:":1"|upper }}
+                    </div>
+                  {% endfor %}
+                </div>
+                <span style="color:#64748B;font-size:13px;">{{ team.members.count }} member{{ team.members.count|pluralize }}</span>
+              </div>
+            </td>
+            <td style="text-align:right;">
+              <button type="button" class="btn btn-sm btn-outline-secondary rounded-3" style="padding:4px 10px;" onclick="editTeam('{{ team.id }}', '{{ team.name|escapejs }}')">
+                <i class="bi bi-pencil"></i>
+              </button>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="3" class="text-center py-5 text-muted" style="font-size:13px;">
+              No teams created yet. Create a team to group your company cardholders and track collective analytics.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="p-3 border-top d-flex align-items-center justify-content-between flex-wrap gap-2" style="background:#FAFAFA;font-size:13px;color:#64748B;">
+    <div>Showing 1 - {{ teams|length }} of {{ teams|length }} results</div>
+    <div>
+      <span class="badge bg-success px-3 py-2" style="border-radius:8px;">1</span>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: New Team -->
+<div class="modal fade" id="newTeamModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg" style="border-radius:20px;overflow:hidden;">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold" style="font-size:18px;">Create New Team</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="{% url 'dashboard_teams_add' %}">
+        {% csrf_token %}
+        <div class="modal-body p-4">
+          <div class="mb-3">
+            <label class="form-label small fw-bold text-secondary">Team Name *</label>
+            <input type="text" name="name" class="form-control" required style="border-radius:10px;font-size:13.5px;" placeholder="e.g. Sales, Executive, Operations">
+          </div>
+          <div class="mb-3">
+            <label class="form-label small fw-bold text-secondary">Assign Users</label>
+            <select name="member_ids" class="form-select" multiple style="border-radius:10px;font-size:13px;height:120px;">
+              {% for u in all_users %}
+                <option value="{{ u.id }}">{{ u.get_full_name|default:u.username }} ({{ u.email }})</option>
+              {% endfor %}
+            </select>
+            <small class="text-muted" style="font-size:11.5px;">Hold Ctrl / Cmd to select multiple members.</small>
+          </div>
+        </div>
+        <div class="modal-footer border-0 pt-0 px-4 pb-4">
+          <button type="button" class="btn btn-sm btn-light border rounded-pill px-3" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn-dash-primary rounded-pill px-4">Create Team</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function filterTeamsTable() {
+    const input = document.getElementById('teamSearchInput');
+    const filter = input.value.toLowerCase();
+    const rows = document.querySelectorAll('#teamsTable tbody tr');
+    rows.forEach(row => {
+      const text = row.textContent.toLowerCase();
+      row.style.display = text.includes(filter) ? '' : 'none';
+    });
+  }
+
+  function editTeam(id, name) {
+    const newName = prompt('Enter new team name:', name);
+    if (newName && newName.trim() && newName.trim() !== name) {
+      window.location.href = `/dashboard/teams/rename/${id}/?name=` + encodeURIComponent(newName.trim());
+    }
+  }
+</script>
+{% endblock %}
+

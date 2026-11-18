@@ -1,0 +1,189 @@
+{% extends "dashboard/base_dashboard.html" %}
+
+{% block title %}Settings{% endblock %}
+
+{% block dashboard_content %}
+<div class="mb-4">
+  <h1 style="font-size:26px;font-weight:800;color:#0F172A;margin:0 0 16px;">Settings</h1>
+
+  <!-- Top Tabs: Company & Branding -->
+  <ul class="nav nav-tabs border-bottom" style="gap:24px;">
+    <li class="nav-item">
+      <a class="nav-link active fw-bold text-success border-0 border-bottom border-success border-3 pb-2 px-1" id="tabCompanyBtn" href="#companyPane" data-bs-toggle="tab" style="font-size:14px;">
+        Company
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link fw-semibold text-secondary border-0 pb-2 px-1" id="tabBrandingBtn" href="#brandingPane" data-bs-toggle="tab" style="font-size:14px;">
+        Branding
+      </a>
+    </li>
+  </ul>
+</div>
+
+{% if messages %}
+  {% for msg in messages %}
+    <div class="alert alert-success alert-dismissible fade show rounded-3 small py-2 px-3 mb-4" role="alert">
+      <i class="bi bi-check-circle me-1"></i> {{ msg }}
+      <button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button>
+    </div>
+  {% endfor %}
+{% endif %}
+
+<div class="tab-content" id="settingsTabContent">
+  <!-- Tab 1: Company -->
+  <div class="tab-pane fade show active" id="companyPane">
+    <div class="row g-4" style="max-width:800px;">
+      <!-- Card 1: Business Information -->
+      <div class="col-12">
+        <div class="card border-0 shadow-sm p-4 rounded-4" style="border:1px solid #E2E8F0 !important;background:#FFFFFF;">
+          <h5 style="font-size:17px;font-weight:800;color:#0F172A;margin:0 0 20px;">Business Information</h5>
+          
+          <form method="POST" action="{% url 'dashboard_settings_save_business' %}">
+            {% csrf_token %}
+            <div class="mb-3">
+              <label class="form-label small fw-bold text-secondary">Company Name</label>
+              <input type="text" name="company_name" class="form-control" style="border-radius:10px;font-size:13.5px;" value="{{ company.company_name }}" required>
+            </div>
+
+            <div class="mb-1">
+              <label class="form-label small fw-bold text-secondary">Tax ID (optional)</label>
+              <input type="text" name="tax_id" class="form-control" style="border-radius:10px;font-size:13.5px;" value="{{ company.tax_id|default:'' }}" placeholder="e.g. 32AAVCM2073R1ZQ">
+            </div>
+            <small class="text-muted d-block mb-3" style="font-size:11.5px;">It will be used on invoices.</small>
+
+            <div class="mb-3">
+              <label class="form-label small fw-bold text-secondary">Website (optional)</label>
+              <input type="text" name="website" class="form-control" style="border-radius:10px;font-size:13.5px;" value="{{ company.website|default:'' }}" placeholder="www.yourcompany.com">
+            </div>
+
+            <div class="mb-4">
+              <label class="form-label small fw-bold text-secondary">Total Employees (optional)</label>
+              <input type="number" name="total_employees" class="form-control" style="border-radius:10px;font-size:13.5px;" value="{{ company.total_employees|default:10 }}">
+            </div>
+
+            <button type="submit" class="btn btn-dash-primary w-100 justify-content-center py-2 fw-bold" style="border-radius:10px;">
+              Submit
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Card 2: Contact Information -->
+      <div class="col-12">
+        <div class="card border-0 shadow-sm p-4 rounded-4" style="border:1px solid #E2E8F0 !important;background:#FFFFFF;">
+          <h5 style="font-size:17px;font-weight:800;color:#0F172A;margin:0 0 6px;">Contact Information</h5>
+          <p class="text-secondary small mb-4">This information will be displayed to your users on the <span class="text-success fw-semibold">support page</span>.</p>
+
+          <form method="POST" action="{% url 'dashboard_settings_save_contact' %}">
+            {% csrf_token %}
+            <div class="mb-3">
+              <label class="form-label small fw-bold text-secondary">Contact Email</label>
+              <input type="email" name="contact_email" class="form-control" style="border-radius:10px;font-size:13.5px;" value="{{ company.contact_email|default:'' }}" placeholder="contact@company.com">
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label small fw-bold text-secondary">Contact Number</label>
+              <div class="input-group">
+                <span class="input-group-text bg-white" style="border-radius:10px 0 0 10px;font-size:13px;">🇮🇳 +91</span>
+                <input type="tel" name="contact_number" class="form-control" style="border-radius:0 10px 10px 0;font-size:13.5px;" value="{{ company.contact_number|default:'' }}" placeholder="9876543210">
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label small fw-bold text-secondary">WhatsApp Number</label>
+              <div class="input-group">
+                <span class="input-group-text bg-white" style="border-radius:10px 0 0 10px;font-size:13px;">🇮🇳 +91</span>
+                <input type="tel" name="whatsapp_number" class="form-control" style="border-radius:0 10px 10px 0;font-size:13.5px;" value="{{ company.whatsapp_number|default:'' }}" placeholder="Enter phone number">
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label small fw-bold text-secondary">Facebook Url (optional)</label>
+              <input type="url" name="facebook_url" class="form-control" style="border-radius:10px;font-size:13.5px;" value="{{ company.facebook_url|default:'' }}" placeholder="https://facebook.com/company">
+            </div>
+
+            <div class="mb-4">
+              <label class="form-label small fw-bold text-secondary">Instagram Url (optional)</label>
+              <input type="url" name="instagram_url" class="form-control" style="border-radius:10px;font-size:13.5px;" value="{{ company.instagram_url|default:'' }}" placeholder="https://instagram.com/company">
+            </div>
+
+            <button type="submit" class="btn btn-dash-primary w-100 justify-content-center py-2 fw-bold" style="border-radius:10px;">
+              Submit
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Card 3: Address -->
+      <div class="col-12">
+        <div class="card border-0 shadow-sm p-4 rounded-4" style="border:1px solid #E2E8F0 !important;background:#FFFFFF;">
+          <h5 style="font-size:17px;font-weight:800;color:#0F172A;margin:0 0 20px;">Address</h5>
+
+          <form method="POST" action="{% url 'dashboard_settings_save_address' %}">
+            {% csrf_token %}
+            <div class="mb-3">
+              <label class="form-label small fw-bold text-secondary">Address</label>
+              <textarea name="address" rows="3" class="form-control" style="border-radius:10px;font-size:13.5px;" placeholder="Office / Building, Road, Area">{{ company.address|default:'' }}</textarea>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label small fw-bold text-secondary">City</label>
+              <input type="text" name="city" class="form-control" style="border-radius:10px;font-size:13.5px;" value="{{ company.city|default:'' }}" placeholder="e.g. Ernakulam">
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label small fw-bold text-secondary">State</label>
+              <input type="text" name="state" class="form-control" style="border-radius:10px;font-size:13.5px;" value="{{ company.state|default:'' }}" placeholder="e.g. Kerala">
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label small fw-bold text-secondary">Country</label>
+              <input type="text" name="country" class="form-control" style="border-radius:10px;font-size:13.5px;" value="{{ company.country|default:'India' }}">
+            </div>
+
+            <div class="mb-4">
+              <label class="form-label small fw-bold text-secondary">Pincode</label>
+              <input type="text" name="pincode" class="form-control" style="border-radius:10px;font-size:13.5px;" value="{{ company.pincode|default:'' }}" placeholder="682020">
+            </div>
+
+            <button type="submit" class="btn btn-dash-primary w-100 justify-content-center py-2 fw-bold" style="border-radius:10px;">
+              Submit
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 2: Branding -->
+  <div class="tab-pane fade" id="brandingPane">
+    <div class="card border-0 shadow-sm p-4 rounded-4" style="max-width:800px;border:1px solid #E2E8F0 !important;background:#FFFFFF;">
+      <h5 style="font-size:17px;font-weight:800;color:#0F172A;margin:0 0 16px;">Portal & Brand Identity</h5>
+      <p style="color:#64748B;font-size:13px;margin-bottom:24px;">Customize company logos, primary theme color, and enterprise subdomains.</p>
+
+      <form method="POST" action="{% url 'dashboard_settings_save_branding' %}" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="mb-4">
+          <label class="form-label small fw-bold text-secondary">Primary Brand Color</label>
+          <div class="d-flex align-items-center gap-3">
+            <input type="color" name="primary_color" class="form-control form-control-color" value="{{ company.primary_color|default:'#10B981' }}" style="width:50px;height:42px;border-radius:10px;">
+            <span class="font-monospace text-secondary" style="font-size:13px;">{{ company.primary_color|default:'#10B981' }}</span>
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <label class="form-label small fw-bold text-secondary">Company Logo</label>
+          <input type="file" name="logo" class="form-control" style="border-radius:10px;font-size:13px;" accept="image/*">
+          <small class="text-muted" style="font-size:11.5px;">Recommended format: Transparent PNG or SVG (max 5MB).</small>
+        </div>
+
+        <button type="submit" class="btn btn-dash-primary rounded-pill px-4">
+          Save Branding
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+

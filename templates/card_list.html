@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Business Cards Manager · BrandNest SaaS</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #087cff;
+            --primary-dark: #0056b3;
+            --ink: #0F172A;
+            --muted: #64748B;
+            --bg: #F8FAFC;
+            --card-border: #E2E8F0;
+        }
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg);
+            color: var(--ink);
+            min-height: 100vh;
+        }
+        .navbar {
+            background: #ffffff;
+            border-bottom: 1px solid var(--card-border);
+        }
+        .brand-logo {
+            font-weight: 800;
+            font-size: 20px;
+            color: var(--primary);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .stat-card {
+            background: #ffffff;
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03);
+            transition: transform .15s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+        }
+        .card-item {
+            background: #ffffff;
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
+            transition: all .2s ease;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .card-item:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+            border-color: #CBD5E1;
+        }
+        .card-item-cover {
+            height: 90px;
+            position: relative;
+            background-size: cover;
+            background-position: center;
+        }
+        .card-item-body {
+            padding: 16px 20px 20px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .card-item-avatar {
+            width: 58px;
+            height: 58px;
+            border-radius: 50%;
+            border: 3px solid #ffffff;
+            object-fit: cover;
+            margin-top: -38px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            background: #ffffff;
+        }
+        .card-item-actions {
+            margin-top: auto;
+            padding-top: 14px;
+            border-top: 1px solid var(--card-border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .empty-state {
+            background: #ffffff;
+            border: 2px dashed var(--card-border);
+            border-radius: 24px;
+            padding: 60px 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top Navigation -->
+    <nav class="navbar navbar-expand-lg sticky-top py-3">
+        <div class="container">
+            <a class="brand-logo" href="{% url 'landing' %}">
+                <i class="bi bi-layers-fill"></i> BrandNest
+            </a>
+            <div class="d-flex align-items-center gap-2">
+                {% if enterprise_quota.is_enterprise and enterprise_quota.limit_reached %}
+                <button type="button" class="btn btn-primary rounded-pill px-3 py-2 fw-semibold" data-bs-toggle="modal" data-bs-target="#enterpriseTopupModal">
+                    <i class="bi bi-plus-lg me-1"></i> Add New Business Card
+                </button>
+                {% else %}
+                <a href="{% url 'card_builder' %}" class="btn btn-primary rounded-pill px-3 py-2 fw-semibold">
+                    <i class="bi bi-plus-lg me-1"></i> {% if enterprise_quota.is_enterprise %}Add New Business Card{% else %}Create Card{% endif %}
+                </a>
+                {% endif %}
+                {% if user.is_authenticated %}
+                <a href="{% url 'logout' %}" class="btn btn-outline-danger rounded-pill px-3 py-2 fw-semibold" id="btnCardListSignOut">
+                    <i class="bi bi-box-arrow-right me-1"></i> Sign Out
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container py-4 py-md-5">
+
+        <!-- Django Messages -->
+        {% if messages %}
+        <div class="mb-4">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show rounded-4 shadow-sm" role="alert">
+                <i class="bi bi-check-circle-fill me-2"></i> {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Enterprise Quota Banner -->
+        {% if enterprise_quota.is_enterprise %}
+        <div class="card border-0 rounded-4 shadow-sm mb-4 p-4" style="background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); color: #fff;">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                <div>
+                    <span class="badge bg-primary rounded-pill px-3 py-1 mb-2">
+                        {% if enterprise_quota.plan.company_name %}{{ enterprise_quota.plan.company_name }} • {% endif %}Enterprise Bundle Active
+                    </span>
+                    <h4 class="fw-bold mb-1">
+                        {{ enterprise_quota.cards_used }} of {{ enterprise_quota.card_limit }} Business Cards Built
+                    </h4>
+                    <p class="mb-0 text-light opacity-75 small">
+                        {% if enterprise_quota.limit_reached %}
+                        You have used all {{ enterprise_quota.card_limit }} cards in your bundle (including your own). Add more cards to continue building.
+                        {% else %}
+                        Includes your card and team member cards. You can build <strong>{{ enterprise_quota.cards_remaining }}</strong> more business card{{ enterprise_quota.cards_remaining|pluralize }}.
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    {% if enterprise_quota.limit_reached %}
+                    <button type="button" class="btn btn-warning text-dark rounded-pill px-4 py-2 fw-bold" data-bs-toggle="modal" data-bs-target="#enterpriseTopupModal" id="btnBannerAddMore">
+                        <i class="bi bi-plus-circle-fill me-1"></i> Add More Cards
+                    </button>
+                    {% else %}
+                    <a href="{% url 'card_builder' %}" class="btn btn-primary rounded-pill px-4 py-2 fw-semibold">
+                        <i class="bi bi-plus-circle me-1"></i> Add New Business Card
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="progress mt-3" style="height: 8px; background: rgba(255,255,255,0.14); border-radius: 99px;">
+                <div class="progress-bar {% if enterprise_quota.limit_reached %}bg-warning{% else %}bg-primary{% endif %}" role="progressbar" style="width: {{ enterprise_quota.usage_percent }}%;" aria-valuenow="{{ enterprise_quota.cards_used }}" aria-valuemin="0" aria-valuemax="{{ enterprise_quota.card_limit }}"></div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Header Row -->
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+            <div>
+                <h2 class="fw-bold mb-1">Digital Business Cards</h2>
+                <p class="text-muted mb-0">Manage, preview, edit, or delete all digital business cards in BrandNest.</p>
+            </div>
+            {% if enterprise_quota.is_enterprise and enterprise_quota.limit_reached %}
+            <button type="button" class="btn btn-primary rounded-pill px-4 py-2 shadow-sm fw-semibold" data-bs-toggle="modal" data-bs-target="#enterpriseTopupModal" id="btnHeaderAddCardLimit">
+                <i class="bi bi-plus-circle me-1"></i> Add New Business Card
+            </button>
+            {% else %}
+            <a href="{% url 'card_builder' %}" class="btn btn-primary rounded-pill px-4 py-2 shadow-sm fw-semibold" id="btnHeaderAddCard">
+                <i class="bi bi-plus-circle me-1"></i> {% if enterprise_quota.is_enterprise %}Add New Business Card{% else %}New Business Card{% endif %}
+            </a>
+            {% endif %}
+        </div>
+
+        <!-- Metric Stat Cards -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <span class="text-muted small fw-semibold text-uppercase">Total Cards</span>
+                            <h3 class="fw-bold mb-0 mt-1">{{ total_count }}</h3>
+                        </div>
+                        <div class="bg-primary bg-opacity-10 text-primary rounded-4 p-3 fs-4">
+                            <i class="bi bi-id-card"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <span class="text-muted small fw-semibold text-uppercase">Active &amp; Published</span>
+                            <h3 class="fw-bold mb-0 mt-1 text-success">{{ published_count }}</h3>
+                        </div>
+                        <div class="bg-success bg-opacity-10 text-success rounded-4 p-3 fs-4">
+                            <i class="bi bi-check-circle"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stat-card">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <span class="text-muted small fw-semibold text-uppercase">Total Card Views</span>
+                            <h3 class="fw-bold mb-0 mt-1 text-info">{{ total_views }}</h3>
+                        </div>
+                        <div class="bg-info bg-opacity-10 text-info rounded-4 p-3 fs-4">
+                            <i class="bi bi-eye"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cards Grid -->
+        {% if cards %}
+        <div class="row g-4">
+            {% for c in cards %}
+            <div class="col-md-6 col-lg-4">
+                <div class="card-item">
+                    <div class="card-item-cover" style="{% if c.banner_image %}background-image: url('{{ c.banner_image.url }}');{% else %}background: linear-gradient(135deg, {{ c.theme_color|default:'#087cff' }}, #6366f1);{% endif %}">
+                        <span class="badge position-absolute top-0 end-0 m-2 rounded-pill {% if c.is_published %}bg-success{% else %}bg-secondary{% endif %}">
+                            {% if c.is_published %}Published{% else %}Draft{% endif %}
+                        </span>
+                    </div>
+                    <div class="card-item-body">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            {% if c.profile_image %}
+                            <img src="{{ c.profile_image.url }}" alt="{{ c.owner_name }}" class="card-item-avatar">
+                            {% elif c.profile_photo %}
+                            <img src="{{ c.profile_photo.url }}" alt="{{ c.owner_name }}" class="card-item-avatar">
+                            {% else %}
+                            <div class="card-item-avatar d-flex align-items-center justify-content-center bg-light text-primary fw-bold fs-5">
+                                {{ c.owner_name|slice:":1"|default:"B" }}
+                            </div>
+                            {% endif %}
+                            <span class="text-muted small" title="Total Views">
+                                <i class="bi bi-eye me-1"></i> {{ c.views_count }} views
+                            </span>
+                        </div>
+
+                        <h5 class="fw-bold mb-1 text-truncate" title="{{ c.business_name }}">{{ c.business_name|default:"Untitled Business" }}</h5>
+                        <p class="text-muted small mb-2 text-truncate">{{ c.owner_name }}{% if c.tagline %} · {{ c.tagline }}{% endif %}</p>
+
+                        <div class="small text-muted mb-3">
+                            <span class="badge bg-light text-dark border me-1"><i class="bi bi-hash"></i> {{ c.card_id }}</span>
+                            <span>{{ c.created_at|date:"M d, Y" }}</span>
+                        </div>
+
+                        <div class="card-item-actions">
+                            <a href="{% url 'card_preview' card_id=c.card_id %}" class="btn btn-sm btn-primary rounded-pill px-3" title="Interactive Phone Preview">
+                                <i class="bi bi-phone me-1"></i> Preview
+                            </a>
+                            <a href="{% url 'card_edit' card_id=c.card_id %}" class="btn btn-sm btn-outline-primary rounded-pill px-3" title="Edit in Builder">
+                                <i class="bi bi-pencil me-1"></i> Edit
+                            </a>
+                            <a href="{% url 'card_standalone' slug=c.slug %}" target="_blank" class="btn btn-sm btn-outline-dark rounded-pill px-2" title="Public Standalone Card">
+                                <i class="bi bi-box-arrow-up-right"></i>
+                            </a>
+                            <a href="{% url 'card_delete' card_id=c.card_id %}" class="btn btn-sm btn-outline-danger rounded-pill px-2 ms-auto"
+                               onclick="return confirm('Permanently delete the business card for {{ c.business_name|escapejs }}?');" title="Delete Card">
+                                <i class="bi bi-trash3"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <!-- Empty State -->
+        <div class="empty-state">
+            <div class="text-muted display-4 mb-3">
+                <i class="bi bi-card-heading"></i>
+            </div>
+            <h4 class="fw-bold mb-2">No Business Cards Yet</h4>
+            <p class="text-muted mb-4" style="max-width: 460px; margin: 0 auto;">
+                All dummy data has been removed. Create your first digital business card with live interactive preview, custom branding, and NFC/QR ready share links.
+            </p>
+            <a href="{% url 'card_builder' %}" class="btn btn-primary btn-lg rounded-pill px-4 shadow">
+                <i class="bi bi-plus-circle me-1"></i> Create Your First Card
+            </a>
+        </div>
+        {% endif %}
+
+    </div>
+
+    <!-- Enterprise Limit Reached / Add More Business Cards Modal -->
+    <div class="modal fade" id="enterpriseTopupModal" tabindex="-1" aria-labelledby="enterpriseTopupModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow-lg p-2">
+                <div class="modal-header border-0 pb-0">
+                    <div>
+                        <span class="badge bg-warning-subtle text-warning-emphasis rounded-pill px-3 py-1 mb-2">
+                            <i class="bi bi-lightning-charge-fill me-1"></i> Card Limit Reached
+                        </span>
+                        <h5 class="modal-title fw-bold" id="enterpriseTopupModalLabel">Add More Business Cards</h5>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="post" action="{% url 'enterprise_topup' %}" id="enterpriseTopupForm">
+                    {% csrf_token %}
+                    <input type="hidden" name="extra_cards" id="inputExtraCards" value="1">
+                    <div class="modal-body pt-2">
+                        <p class="text-muted small mb-3">
+                            You have created <strong>{{ enterprise_quota.cards_used }} / {{ enterprise_quota.card_limit }}</strong> business cards on your current Enterprise plan. Add extra business cards one by one as your team expands:
+                        </p>
+
+                        <!-- Interactive Card Quantity Stepper (+1, +1, etc.) -->
+                        <div class="p-3 rounded-4 border bg-light mb-3 text-center">
+                            <label class="form-label text-muted small fw-bold text-uppercase mb-2" style="letter-spacing:0.04em;">How many extra cards do you need?</label>
+                            
+                            <div class="d-flex align-items-center justify-content-center gap-3 my-2">
+                                <button type="button" class="btn btn-outline-secondary rounded-circle" id="btnStepMinus" onclick="stepExtraCards(-1)" style="width:44px;height:44px;font-size:20px;display:grid;place-items:center;line-height:1;">
+                                    <i class="bi bi-dash-lg"></i>
+                                </button>
+                                <div class="px-4 py-2 bg-white rounded-3 border shadow-sm" style="min-width:140px;">
+                                    <div class="fs-2 fw-bolder text-primary lh-1" id="displayExtraCardsCount">+1</div>
+                                    <div class="text-muted fw-semibold" style="font-size:12px;" id="displayExtraCardsLabel">Card</div>
+                                </div>
+                                <button type="button" class="btn btn-primary rounded-circle" id="btnStepPlus" onclick="stepExtraCards(1)" style="width:44px;height:44px;font-size:20px;display:grid;place-items:center;line-height:1;">
+                                    <i class="bi bi-plus-lg"></i>
+                                </button>
+                            </div>
+
+                            <!-- Quick Increment Pills -->
+                            <div class="d-flex justify-content-center gap-2 mt-3 flex-wrap">
+                                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1" onclick="setExtraCards(1)">+1 Card</button>
+                                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1" onclick="setExtraCards(2)">+2 Cards</button>
+                                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1" onclick="setExtraCards(5)">+5 Cards</button>
+                                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1" onclick="setExtraCards(10)">+10 Cards</button>
+                            </div>
+                        </div>
+
+                        <!-- Price Calculation Box -->
+                        <div class="card border-0 bg-primary bg-opacity-10 rounded-3 p-3 mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1 text-muted small">
+                                <span>Rate per card</span>
+                                <span class="fw-semibold text-dark">₹{{ extra_card_price|default:199 }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center pt-2 border-top border-primary border-opacity-25">
+                                <span class="fw-bold text-dark fs-6">Total Due:</span>
+                                <span class="fw-bolder fs-4 text-primary" id="displayTotalPrice">₹{{ extra_card_price|default:199 }}</span>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-success py-2 px-3 rounded-3 small mb-0">
+                            <i class="bi bi-shield-check me-1"></i> Simulated payment mode: clicking below immediately unlocks the cards and opens the builder.
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 pt-0">
+                        <button type="button" class="btn btn-light rounded-pill px-3" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary rounded-pill px-4 fw-semibold" id="btnTopupSubmit" onclick="openTopupRzpModal()">
+                            Pay ₹{{ extra_card_price|default:199 }} &amp; Add +1 Card
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Razorpay Test Mode Payment Gateway Modal (for Top-Up) -->
+    <div id="topupRzpBackdrop" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.72);backdrop-filter:blur(4px);z-index:2000;align-items:center;justify-content:center;padding:16px;">
+        <div style="width:100%;max-width:400px;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.35);">
+            <div style="background:linear-gradient(135deg,#072654 0%,#0D3B82 100%);color:#fff;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <div style="width:36px;height:36px;border-radius:9px;background:#3395FF;display:grid;place-items:center;">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M22.436 0l-11.91 14.184h6.05L6.037 24l5.362-9.816H5.35L17.26 0z"/></svg>
+                    </div>
+                    <div>
+                        <div style="font-size:14.5px;font-weight:700;display:flex;align-items:center;gap:6px;">
+                            BrandNest SaaS
+                            <span style="font-size:10px;font-weight:800;background:#F59E0B;color:#111827;padding:2px 6px;border-radius:4px;">TEST MODE</span>
+                        </div>
+                        <div id="topupRzpDesc" style="font-size:12px;color:#CBD5E1;">Add +1 Business Card</div>
+                    </div>
+                </div>
+                <button type="button" onclick="closeTopupRzpModal()" style="background:none;border:0;color:#CBD5E1;font-size:22px;cursor:pointer;line-height:1;">&times;</button>
+            </div>
+            <div style="background:#F8FAFC;padding:12px 20px;border-bottom:1px solid #E2E8F0;display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-size:12.5px;color:#64748B;font-weight:600;">Payable Amount (Test)</span>
+                <span id="topupRzpAmt" style="font-size:19px;font-weight:800;color:#0F172A;">₹{{ extra_card_price|default:199 }}</span>
+            </div>
+            <div id="topupRzpBody" style="padding:18px 20px;">
+                <div style="margin-bottom:10px;">
+                    <label style="display:block;font-size:11.5px;font-weight:600;color:#64748B;margin-bottom:4px;">Razorpay Test Card / UPI</label>
+                    <input type="text" value="4111 1111 1111 1111  (Test Visa)" readonly class="form-control form-control-sm font-monospace bg-light">
+                </div>
+                <button type="button" onclick="confirmTopupRzpPay()" class="btn btn-primary w-100 py-2 fw-bold rounded-3" id="topupRzpPayBtn">
+                    <i class="bi bi-lock-fill me-1"></i> Pay ₹{{ extra_card_price|default:199 }} Now
+                </button>
+                <div class="text-center text-muted mt-2" style="font-size:11px;">
+                    <i class="bi bi-shield-lock-fill text-primary"></i> Secured by Razorpay (Simulated Test Gateway)
+                </div>
+            </div>
+            <div id="topupRzpStatus" style="display:none;padding:30px 20px;text-align:center;">
+                <div class="spinner-border text-primary mb-2" role="status" id="topupRzpSpinner"></div>
+                <div id="topupRzpCheck" style="display:none;font-size:32px;color:#16A34A;"><i class="bi bi-check-circle-fill"></i></div>
+                <div class="fw-bold text-dark mt-1" id="topupRzpStatusTitle">Processing Test Payment...</div>
+                <div class="text-muted small" id="topupRzpStatusSub">Confirming with Razorpay Test Mode</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    const EXTRA_CARD_UNIT_PRICE = {{ extra_card_price|default:199 }};
+    const CURRENT_LIMIT = {{ enterprise_quota.card_limit|default:5 }};
+    let currentExtraCount = 1;
+
+    function updateTopupUI() {
+        const count = currentExtraCount;
+        const total = count * EXTRA_CARD_UNIT_PRICE;
+        
+        const inputExtra = document.getElementById('inputExtraCards');
+        if (inputExtra) inputExtra.value = count;
+
+        const countDisplay = document.getElementById('displayExtraCardsCount');
+        if (countDisplay) countDisplay.textContent = `+${count}`;
+
+        const labelDisplay = document.getElementById('displayExtraCardsLabel');
+        if (labelDisplay) labelDisplay.textContent = count === 1 ? 'Card' : 'Cards';
+
+        const totalDisplay = document.getElementById('displayTotalPrice');
+        if (totalDisplay) totalDisplay.textContent = `₹${total}`;
+
+        const submitBtn = document.getElementById('btnTopupSubmit');
+        if (submitBtn) submitBtn.innerHTML = `Pay ₹${total} &amp; Add +${count} Card${count > 1 ? 's' : ''}`;
+        
+        // Disable minus button at 1
+        const minusBtn = document.getElementById('btnStepMinus');
+        if (minusBtn) {
+            minusBtn.disabled = count <= 1;
+            minusBtn.style.opacity = count <= 1 ? '0.45' : '1';
+        }
+    }
+
+    function stepExtraCards(delta) {
+        currentExtraCount = Math.max(1, currentExtraCount + delta);
+        updateTopupUI();
+    }
+
+    function setExtraCards(num) {
+        currentExtraCount = Math.max(1, parseInt(num, 10) || 1);
+        updateTopupUI();
+    }
+
+    function openTopupRzpModal() {
+        const count = currentExtraCount;
+        const total = count * EXTRA_CARD_UNIT_PRICE;
+        document.getElementById('topupRzpDesc').textContent = `Add +${count} Business Card${count > 1 ? 's' : ''}`;
+        document.getElementById('topupRzpAmt').textContent = `₹${total}`;
+        document.getElementById('topupRzpPayBtn').innerHTML = `<i class="bi bi-lock-fill me-1"></i> Pay ₹${total} Now`;
+        document.getElementById('topupRzpBody').style.display = 'block';
+        document.getElementById('topupRzpStatus').style.display = 'none';
+        document.getElementById('topupRzpSpinner').style.display = 'inline-block';
+        document.getElementById('topupRzpCheck').style.display = 'none';
+        document.getElementById('topupRzpBackdrop').style.display = 'flex';
+    }
+
+    function closeTopupRzpModal() {
+        document.getElementById('topupRzpBackdrop').style.display = 'none';
+    }
+
+    function confirmTopupRzpPay() {
+        document.getElementById('topupRzpBody').style.display = 'none';
+        document.getElementById('topupRzpStatus').style.display = 'block';
+        const testId = 'pay_test_' + Math.random().toString(36).substring(2, 10).toUpperCase();
+        setTimeout(() => {
+            document.getElementById('topupRzpSpinner').style.display = 'none';
+            document.getElementById('topupRzpCheck').style.display = 'block';
+            document.getElementById('topupRzpStatusTitle').textContent = 'Payment Successful!';
+            document.getElementById('topupRzpStatusSub').textContent = `Razorpay Test ID: ${testId}`;
+            setTimeout(() => {
+                document.getElementById('enterpriseTopupForm').submit();
+            }, 600);
+        }, 700);
+    }
+
+    {% if show_upgrade_modal %}
+    document.addEventListener('DOMContentLoaded', function() {
+        const modalEl = document.getElementById('enterpriseTopupModal');
+        if (modalEl && window.bootstrap) {
+            new bootstrap.Modal(modalEl).show();
+        }
+    });
+    {% endif %}
+
+    document.addEventListener('click', function(e) {
+        const a = e.target.closest('a');
+        if (a && a.getAttribute('href') && a.getAttribute('href').includes('logout')) {
+            try {
+                Object.keys(localStorage).forEach(function(k) {
+                    if (k.startsWith('brandnest_card_draft')) {
+                        localStorage.removeItem(k);
+                    }
+                });
+            } catch(err) {}
+        }
+    });
+    </script>
+</body>
+</html>
+

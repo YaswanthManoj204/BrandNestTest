@@ -1,0 +1,606 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Dashboard{% endblock %} - BrandNest</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  
+  <style>
+    :root {
+      --primary-green: #10B981;
+      --primary-green-dark: #059669;
+      --primary-green-light: #D1FAE5;
+      --sidebar-bg: #10B981;
+      --sidebar-active: #059669;
+      --sidebar-text: #FFFFFF;
+      --sidebar-text-muted: rgba(255, 255, 255, 0.85);
+      --canvas-bg: #F8FAFC;
+      --card-bg: #FFFFFF;
+      --text-main: #0F172A;
+      --text-muted: #64748B;
+      --border-color: #E2E8F0;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    body {
+      background-color: var(--canvas-bg);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+    }
+
+    /* Left Sidebar */
+    .dash-sidebar {
+      width: 260px;
+      min-width: 260px;
+      background-color: var(--sidebar-bg);
+      color: var(--sidebar-text);
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      z-index: 1040;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+      transition: transform 0.25s ease;
+    }
+
+    .dash-sidebar::-webkit-scrollbar {
+      width: 5px;
+    }
+    .dash-sidebar::-webkit-scrollbar-thumb {
+      background-color: rgba(255, 255, 255, 0.3);
+      border-radius: 99px;
+    }
+
+    /* User Profile Card inside Sidebar */
+    .sidebar-user-header {
+      padding: 16px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+      cursor: pointer;
+    }
+
+    .sidebar-user-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .user-avatar-circle {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.95);
+      color: var(--primary-green-dark);
+      font-weight: 700;
+      font-size: 14px;
+      display: grid;
+      place-items: center;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .user-name-label {
+      font-size: 14px;
+      font-weight: 700;
+      color: #FFFFFF;
+      line-height: 1.2;
+    }
+
+    .sidebar-nav-section {
+      padding: 16px 12px 6px;
+    }
+
+    .sidebar-section-title {
+      font-size: 11.5px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: capitalize;
+      color: rgba(255, 255, 255, 0.75);
+      padding: 0 12px 8px;
+      display: block;
+    }
+
+    .sidebar-nav-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .sidebar-nav-link {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 9px 14px;
+      border-radius: 10px;
+      color: var(--sidebar-text-muted);
+      text-decoration: none;
+      font-size: 13.5px;
+      font-weight: 600;
+      transition: all 0.15s ease;
+    }
+
+    .sidebar-nav-link i {
+      font-size: 16px;
+      width: 20px;
+      text-align: center;
+      opacity: 0.9;
+    }
+
+    .sidebar-nav-link:hover {
+      color: #FFFFFF;
+      background-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .sidebar-nav-link.active {
+      color: #FFFFFF;
+      background-color: var(--sidebar-active);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Main Content Wrapper */
+    .dash-main {
+      margin-left: 260px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 100vh;
+    }
+
+    /* Top Navbar */
+    .dash-topbar {
+      height: 68px;
+      background: #FFFFFF;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      position: sticky;
+      top: 0;
+      z-index: 1020;
+    }
+
+    .topbar-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: var(--text-main);
+    }
+
+    .topbar-brand-title {
+      font-size: 21px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #0F172A;
+    }
+
+    .topbar-brand-title span {
+      color: var(--primary-green);
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .topbar-icon-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 1px solid var(--border-color);
+      background: transparent;
+      color: var(--text-muted);
+      display: grid;
+      place-items: center;
+      font-size: 17px;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s ease;
+    }
+
+    .topbar-icon-btn:hover {
+      background: #F1F5F9;
+      color: var(--text-main);
+    }
+
+    /* Page Content Container */
+    .dash-content {
+      padding: 30px 32px;
+      flex: 1;
+    }
+
+    /* KPI Cards */
+    .kpi-card {
+      background: #FFFFFF;
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 22px 24px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+      height: 100%;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .kpi-card:hover {
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+    }
+
+    .kpi-card-title {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .kpi-card-value {
+      font-size: 30px;
+      font-weight: 800;
+      color: var(--text-main);
+      line-height: 1.1;
+    }
+
+    /* Data Table Styling */
+    .dash-table-wrap {
+      background: #FFFFFF;
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+      overflow: hidden;
+    }
+
+    .dash-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      margin-bottom: 0;
+    }
+
+    .dash-table th {
+      background: #FAFAFA;
+      color: var(--text-muted);
+      font-size: 12.5px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border-color);
+      text-align: left;
+    }
+
+    .dash-table td {
+      padding: 16px 20px;
+      vertical-align: middle;
+      border-bottom: 1px solid #F1F5F9;
+      font-size: 13.5px;
+      color: var(--text-main);
+    }
+
+    .dash-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .dash-table tr:hover td {
+      background: #F8FAFC;
+    }
+
+    /* Common Buttons */
+    .btn-dash-primary {
+      background: var(--primary-green);
+      color: #FFFFFF;
+      border: none;
+      padding: 9px 18px;
+      border-radius: 10px;
+      font-size: 13.5px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 6px rgba(16, 185, 129, 0.25);
+    }
+
+    .btn-dash-primary:hover {
+      background: var(--primary-green-dark);
+      color: #FFFFFF;
+      transform: translateY(-1px);
+    }
+
+    .btn-dash-outline {
+      background: #FFFFFF;
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      padding: 8px 16px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn-dash-outline:hover {
+      background: #F8FAFC;
+      border-color: #CBD5E1;
+      color: var(--text-main);
+    }
+
+    /* Badges */
+    .badge-status-active {
+      background: #DCFCE7;
+      color: #15803D;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 99px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .badge-status-hot {
+      background: #FEE2E2;
+      color: #B91C1C;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 99px;
+    }
+
+    .badge-status-warm {
+      background: #FEF3C7;
+      color: #B45309;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 99px;
+    }
+
+    .badge-status-cold {
+      background: #E0F2FE;
+      color: #0369A1;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 99px;
+    }
+
+    /* Floating Chat Indicator Button */
+    .floating-help-widget {
+      position: fixed;
+      bottom: 24px;
+      right: 28px;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--primary-green);
+      color: #FFFFFF;
+      display: grid;
+      place-items: center;
+      font-size: 20px;
+      box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
+      cursor: pointer;
+      z-index: 1050;
+      transition: transform 0.2s ease;
+    }
+
+    .floating-help-widget:hover {
+      transform: scale(1.08);
+    }
+
+    @media (max-width: 992px) {
+      .dash-sidebar {
+        transform: translateX(-100%);
+      }
+      .dash-sidebar.open {
+        transform: translateX(0);
+      }
+      .dash-main {
+        margin-left: 0;
+      }
+    }
+  </style>
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="dash-sidebar" id="dashSidebar">
+    <!-- User Profile Header -->
+    <div class="sidebar-user-header dropdown">
+      <div class="sidebar-user-info" data-bs-toggle="dropdown" aria-expanded="false">
+        <div class="user-avatar-circle">
+          {{ request.user.first_name|default:request.user.username|slice:":1"|upper }}
+        </div>
+        <div>
+          <div class="user-name-label">{{ request.user.first_name|default:request.user.username|title }}</div>
+          <small style="color:rgba(255,255,255,0.7);font-size:11px;">{% if request.user.is_superuser %}Super Admin{% else %}Member{% endif %}</small>
+        </div>
+      </div>
+      <i class="bi bi-chevron-down text-white-50" style="font-size:12px;"></i>
+      <ul class="dropdown-menu shadow border-0" style="font-size:13.5px;border-radius:12px;">
+        <li><a class="dropdown-item py-2 fw-bold text-dark" href="{% url 'enterprise_admin_overview' %}"><i class="bi bi-buildings-fill me-2 text-warning"></i> Enterprise Admin Panel &rarr;</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item py-2" href="/"><i class="bi bi-globe me-2 text-primary"></i> Public Site</a></li>
+        <li><a class="dropdown-item py-2" href="{% url 'card_builder' %}"><i class="bi bi-plus-circle me-2 text-success"></i> New Business Card</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item py-2 text-danger" href="{% url 'admin_logout' %}"><i class="bi bi-box-arrow-right me-2"></i> Sign Out</a></li>
+      </ul>
+    </div>
+
+    <!-- Button to Enterprise Super Admin Panel -->
+    <div style="padding: 12px 14px 4px;">
+      <a href="{% url 'enterprise_admin_overview' %}" style="display:flex;align-items:center;justify-content:center;gap:8px;background:#0F172A;color:#FFFFFF;padding:10px 14px;border-radius:12px;text-decoration:none;font-weight:700;font-size:12.5px;box-shadow:0 3px 10px rgba(0,0,0,0.18);transition:all 0.2s;" onmouseover="this.style.background='#1E293B';this.style.transform='translateY(-1px)';" onmouseout="this.style.background='#0F172A';this.style.transform='translateY(0)';">
+        <i class="bi bi-buildings text-warning"></i>
+        <span>Enterprise Admin Panel &rarr;</span>
+      </a>
+    </div>
+
+    <!-- Section 1: My Profile -->
+    <div class="sidebar-nav-section">
+      <span class="sidebar-section-title">My Profile</span>
+      <ul class="sidebar-nav-list">
+        <li>
+          <a href="{% url 'dashboard_cards' %}" class="sidebar-nav-link {% if active_menu == 'cards' %}active{% endif %}">
+            <i class="bi bi-person-vcard"></i> Web Cards
+          </a>
+        </li>
+        <li>
+          <a href="{% url 'dashboard_nfc' %}" class="sidebar-nav-link {% if active_menu == 'nfc' %}active{% endif %}">
+            <i class="bi bi-wifi"></i> NFC Cards
+          </a>
+        </li>
+        <li>
+          <a href="{% url 'dashboard_qr_codes' %}" class="sidebar-nav-link {% if active_menu == 'qr_codes' %}active{% endif %}">
+            <i class="bi bi-qr-code"></i> QR Codes
+          </a>
+        </li>
+        <li>
+          <a href="{% url 'dashboard_contacts' %}" class="sidebar-nav-link {% if active_menu == 'contacts' %}active{% endif %}">
+            <i class="bi bi-people"></i> Contacts
+          </a>
+        </li>
+        <li>
+          <a href="{% url 'dashboard_messages' %}" class="sidebar-nav-link {% if active_menu == 'messages' %}active{% endif %}">
+            <i class="bi bi-chat-dots"></i> Messages
+          </a>
+        </li>
+        <li>
+          <a href="{% url 'dashboard_wallet_pass' %}" class="sidebar-nav-link {% if active_menu == 'wallet_pass' %}active{% endif %}">
+            <i class="bi bi-wallet2"></i> Wallet Pass
+          </a>
+        </li>
+        <li>
+          <a href="{% url 'dashboard_virtual_bg' %}" class="sidebar-nav-link {% if active_menu == 'virtual_bg' %}active{% endif %}">
+            <i class="bi bi-camera-video"></i> Virtual Background
+          </a>
+        </li>
+        <li>
+          <a href="{% url 'dashboard_email_sig' %}" class="sidebar-nav-link {% if active_menu == 'email_sig' %}active{% endif %}">
+            <i class="bi bi-envelope"></i> Email Signature
+          </a>
+        </li>
+        <li>
+          <a href="{% url 'dashboard_analytics' %}" class="sidebar-nav-link {% if active_menu == 'analytics' %}active{% endif %}">
+            <i class="bi bi-pie-chart"></i> Analytics
+          </a>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Section 2: Administration -->
+    <div class="sidebar-nav-section">
+      <span class="sidebar-section-title">Administration</span>
+      <ul class="sidebar-nav-list">
+        <li>
+          <a href="{% url 'dashboard_overview' %}" class="sidebar-nav-link {% if active_menu == 'overview' %}active{% endif %}">
+            <i class="bi bi-house"></i> Overview
+          </a>
+        </li>
+        <li>
+          <a href="{% url 'dashboard_teams' %}" class="sidebar-nav-link {% if active_menu == 'teams' %}active{% endif %}">
+            <i class="bi bi-folder"></i> Teams
+          </a>
+        </li>
+        <li>
+          <a href="{% url 'dashboard_users' %}" class="sidebar-nav-link {% if active_menu == 'users' %}active{% endif %}">
+            <i class="bi bi-person-gear"></i> Users
+          </a>
+        </li>
+        <li>
+          <a href="{% url 'dashboard_templates' %}" class="sidebar-nav-link {% if active_menu == 'templates' %}active{% endif %}">
+            <i class="bi bi-window"></i> Templates
+          </a>
+        </li>
+        <li>
+          <a href="{% url 'dashboard_leads' %}" class="sidebar-nav-link {% if active_menu == 'leads' %}active{% endif %}">
+            <i class="bi bi-chat-left-text"></i> Leads
+          </a>
+        </li>
+        <li>
+          <a href="{% url 'dashboard_accessories' %}" class="sidebar-nav-link {% if active_menu == 'accessories' %}active{% endif %}">
+            <i class="bi bi-broadcast-pin"></i> Accessories
+          </a>
+        </li>
+        <li>
+          <a href="{% url 'dashboard_integrations' %}" class="sidebar-nav-link {% if active_menu == 'integrations' %}active{% endif %}">
+            <i class="bi bi-plugin"></i> Integrations
+          </a>
+        </li>
+        <li>
+          <a href="{% url 'dashboard_settings' %}" class="sidebar-nav-link {% if active_menu == 'settings' %}active{% endif %}">
+            <i class="bi bi-gear"></i> Settings
+          </a>
+        </li>
+      </ul>
+    </div>
+  </aside>
+
+  <!-- Main Content Wrapper -->
+  <div class="dash-main">
+    <!-- Topbar -->
+    <header class="dash-topbar">
+      <a href="{% url 'dashboard_overview' %}" class="topbar-brand">
+        <span class="topbar-brand-title">Brand<span>Nest</span></span>
+        <span class="badge bg-light text-secondary border px-2 py-1 ms-1" style="font-size:11px;font-weight:700;">ADMIN</span>
+      </a>
+
+      <div class="topbar-actions">
+        <a href="{% url 'enterprise_admin_overview' %}" class="btn btn-sm btn-dark rounded-pill px-3 py-1.5 fw-bold d-inline-flex align-items-center gap-2">
+          <i class="bi bi-buildings text-warning"></i> Enterprise Admin Panel &rarr;
+        </a>
+        <a href="{% url 'card_builder' %}" class="btn-dash-primary d-none d-md-inline-flex">
+          <i class="bi bi-plus-circle"></i> Create Card
+        </a>
+        <a href="/" target="_blank" class="btn-dash-outline d-none d-sm-inline-flex">
+          <i class="bi bi-box-arrow-up-right"></i> Public Landing
+        </a>
+        <button type="button" class="topbar-icon-btn" title="Notifications" aria-label="Notifications">
+          <i class="bi bi-bell"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Page Content Injection -->
+    <main class="dash-content">
+      {% block dashboard_content %}{% endblock %}
+    </main>
+  </div>
+
+  <!-- Floating Chat / Support Icon -->
+  <div class="floating-help-widget" title="Need help?" onclick="alert('BrandNest Live Support is online.');">
+    <i class="bi bi-chat-dots-fill"></i>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>
+
