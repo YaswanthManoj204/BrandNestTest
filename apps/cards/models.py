@@ -138,12 +138,17 @@ class UserPlan(models.Model):
     ]
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='card_plan')
+    enterprise_parent = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='enterprise_employees')
     plan_type = models.CharField(max_length=20, choices=PLAN_TYPES, default='personal')
+    is_ceo = models.BooleanField(default=False)
     company_name = models.CharField(max_length=180, blank=True)
     company_head_name = models.CharField(max_length=150, blank=True)
     company_phone = models.CharField(max_length=30, blank=True)
     company_email = models.EmailField(blank=True)
+    employee_role = models.CharField(max_length=120, blank=True)
+    initial_password = models.CharField(max_length=128, blank=True)
     card_limit = models.PositiveIntegerField(default=0)
+    nfc_card_limit = models.PositiveIntegerField(default=0)
     total_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

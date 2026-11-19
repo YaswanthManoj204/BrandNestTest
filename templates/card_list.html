@@ -113,14 +113,34 @@
                 <i class="bi bi-layers-fill"></i> BrandNest
             </a>
             <div class="d-flex align-items-center gap-2">
-                {% if enterprise_quota.is_enterprise and enterprise_quota.limit_reached %}
-                <button type="button" class="btn btn-primary rounded-pill px-3 py-2 fw-semibold" data-bs-toggle="modal" data-bs-target="#enterpriseTopupModal">
-                    <i class="bi bi-plus-lg me-1"></i> Add New Business Card
-                </button>
+                {% if enterprise_quota.is_enterprise and enterprise_quota.is_ceo %}
+                    {% if enterprise_quota.employee_slots_remaining > 0 %}
+                    <button type="button" class="btn btn-primary rounded-pill px-3 py-2 fw-semibold" data-bs-toggle="modal" data-bs-target="#addUserModal" id="btnNavAddUser">
+                        <i class="bi bi-person-plus-fill me-1"></i> Add User
+                    </button>
+                    {% else %}
+                    <button type="button" class="btn btn-warning text-dark rounded-pill px-3 py-2 fw-semibold" data-bs-toggle="modal" data-bs-target="#enterpriseTopupModal">
+                        <i class="bi bi-person-plus-fill me-1"></i> Add More Users
+                    </button>
+                    {% endif %}
+                    
+                    {% if enterprise_quota.ceo_has_card %}
+                    <a href="{% url 'card_edit' card_id=enterprise_quota.ceo_card.card_id %}" class="btn btn-outline-primary rounded-pill px-3 py-2 fw-semibold" id="btnNavMyCard">
+                        <i class="bi bi-person-badge me-1"></i> My Business Card
+                    </a>
+                    {% else %}
+                    <a href="{% url 'card_builder' %}" class="btn btn-outline-primary rounded-pill px-3 py-2 fw-semibold" id="btnNavCreateMyCard">
+                        <i class="bi bi-person-plus me-1"></i> Create My Business Card
+                    </a>
+                    {% endif %}
+                {% elif enterprise_quota.is_enterprise and enterprise_quota.is_employee %}
+                    <a href="{% url 'card_builder' %}" class="btn btn-primary rounded-pill px-3 py-2 fw-semibold">
+                        <i class="bi bi-lightning-charge-fill me-1"></i> {% if cards %}Edit My Card{% else %}Design My Card{% endif %}
+                    </a>
                 {% else %}
-                <a href="{% url 'card_builder' %}" class="btn btn-primary rounded-pill px-3 py-2 fw-semibold">
-                    <i class="bi bi-plus-lg me-1"></i> {% if enterprise_quota.is_enterprise %}Add New Business Card{% else %}Create Card{% endif %}
-                </a>
+                    <a href="{% url 'card_builder' %}" class="btn btn-primary rounded-pill px-3 py-2 fw-semibold">
+                        <i class="bi bi-plus-lg me-1"></i> Create Card
+                    </a>
                 {% endif %}
                 {% if user.is_authenticated %}
                 <a href="{% url 'logout' %}" class="btn btn-outline-danger rounded-pill px-3 py-2 fw-semibold" id="btnCardListSignOut">
@@ -151,29 +171,57 @@
         <div class="card border-0 rounded-4 shadow-sm mb-4 p-4" style="background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); color: #fff;">
             <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
                 <div>
-                    <span class="badge bg-primary rounded-pill px-3 py-1 mb-2">
-                        {% if enterprise_quota.plan.company_name %}{{ enterprise_quota.plan.company_name }} • {% endif %}Enterprise Bundle Active
-                    </span>
+                    <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                        <span class="badge bg-primary rounded-pill px-3 py-1">
+                            {% if enterprise_quota.company_name %}{{ enterprise_quota.company_name }} • {% endif %}Enterprise Bundle Active
+                        </span>
+                        {% if enterprise_quota.has_nfc %}
+                        <span class="badge bg-info text-dark rounded-pill px-3 py-1 fw-bold">
+                            <i class="bi bi-broadcast me-1"></i> Smart NFC Cards Included
+                        </span>
+                        {% endif %}
+                    </div>
+                    {% if enterprise_quota.is_ceo %}
                     <h4 class="fw-bold mb-1">
                         {{ enterprise_quota.cards_used }} of {{ enterprise_quota.card_limit }} Business Cards Built
                     </h4>
                     <p class="mb-0 text-light opacity-75 small">
-                        {% if enterprise_quota.limit_reached %}
-                        You have used all {{ enterprise_quota.card_limit }} cards in your bundle (including your own). Add more cards to continue building.
-                        {% else %}
-                        Includes your card and team member cards. You can build <strong>{{ enterprise_quota.cards_remaining }}</strong> more business card{{ enterprise_quota.cards_remaining|pluralize }}.
-                        {% endif %}
+                        Includes your card and team member cards. You have <strong>{{ enterprise_quota.employee_slots_remaining }}</strong> available employee slot{{ enterprise_quota.employee_slots_remaining|pluralize }}.
                     </p>
-                </div>
-                <div class="d-flex align-items-center gap-2">
-                    {% if enterprise_quota.limit_reached %}
-                    <button type="button" class="btn btn-warning text-dark rounded-pill px-4 py-2 fw-bold" data-bs-toggle="modal" data-bs-target="#enterpriseTopupModal" id="btnBannerAddMore">
-                        <i class="bi bi-plus-circle-fill me-1"></i> Add More Cards
-                    </button>
                     {% else %}
-                    <a href="{% url 'card_builder' %}" class="btn btn-primary rounded-pill px-4 py-2 fw-semibold">
-                        <i class="bi bi-plus-circle me-1"></i> Add New Business Card
-                    </a>
+                    <h4 class="fw-bold mb-1">
+                        Welcome to {{ enterprise_quota.company_name }} Business Workspace
+                    </h4>
+                    <p class="mb-0 text-light opacity-75 small">
+                        Your corporate business card {% if enterprise_quota.has_nfc %}+ custom Smart NFC card{% endif %} is 100% pre-paid and covered by your company.
+                    </p>
+                    {% endif %}
+                </div>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    {% if enterprise_quota.is_ceo %}
+                        {% if enterprise_quota.employee_slots_remaining > 0 %}
+                        <button type="button" class="btn btn-primary rounded-pill px-4 py-2 fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#addUserModal" id="btnBannerAddUser">
+                            <i class="bi bi-person-plus-fill me-1"></i> Add User
+                        </button>
+                        {% else %}
+                        <button type="button" class="btn btn-warning text-dark rounded-pill px-4 py-2 fw-bold" data-bs-toggle="modal" data-bs-target="#enterpriseTopupModal" id="btnBannerAddMore">
+                            <i class="bi bi-person-plus-fill me-1"></i> Add More Users
+                        </button>
+                        {% endif %}
+                        
+                        {% if enterprise_quota.ceo_has_card %}
+                        <a href="{% url 'card_edit' card_id=enterprise_quota.ceo_card.card_id %}" class="btn btn-outline-light rounded-pill px-3 py-2 fw-semibold" id="btnBannerMyCard">
+                            <i class="bi bi-person-badge me-1"></i> My Business Card
+                        </a>
+                        {% else %}
+                        <a href="{% url 'card_builder' %}" class="btn btn-outline-light rounded-pill px-3 py-2 fw-semibold" id="btnBannerCreateMyCard">
+                            <i class="bi bi-person-plus me-1"></i> Create My Business Card
+                        </a>
+                        {% endif %}
+                    {% else %}
+                        <a href="{% url 'card_builder' %}" class="btn btn-primary rounded-pill px-4 py-2 fw-bold">
+                            <i class="bi bi-lightning-charge-fill me-1"></i> {% if cards %}Edit My Card{% else %}Design My Card{% endif %}
+                        </a>
                     {% endif %}
                 </div>
             </div>
@@ -189,15 +237,33 @@
                 <h2 class="fw-bold mb-1">Digital Business Cards</h2>
                 <p class="text-muted mb-0">Manage, preview, edit, or delete all digital business cards in BrandNest.</p>
             </div>
-            {% if enterprise_quota.is_enterprise and enterprise_quota.limit_reached %}
-            <button type="button" class="btn btn-primary rounded-pill px-4 py-2 shadow-sm fw-semibold" data-bs-toggle="modal" data-bs-target="#enterpriseTopupModal" id="btnHeaderAddCardLimit">
-                <i class="bi bi-plus-circle me-1"></i> Add New Business Card
-            </button>
-            {% else %}
-            <a href="{% url 'card_builder' %}" class="btn btn-primary rounded-pill px-4 py-2 shadow-sm fw-semibold" id="btnHeaderAddCard">
-                <i class="bi bi-plus-circle me-1"></i> {% if enterprise_quota.is_enterprise %}Add New Business Card{% else %}New Business Card{% endif %}
-            </a>
-            {% endif %}
+            <div class="d-flex align-items-center gap-2">
+                {% if enterprise_quota.is_enterprise and enterprise_quota.is_ceo %}
+                    {% if enterprise_quota.employee_slots_remaining > 0 %}
+                    <button type="button" class="btn btn-primary rounded-pill px-4 py-2 shadow-sm fw-semibold" data-bs-toggle="modal" data-bs-target="#addUserModal" id="btnHeaderAddUser">
+                        <i class="bi bi-person-plus-fill me-1"></i> Add User
+                    </button>
+                    {% else %}
+                    <button type="button" class="btn btn-warning text-dark rounded-pill px-4 py-2 shadow-sm fw-semibold" data-bs-toggle="modal" data-bs-target="#enterpriseTopupModal">
+                        <i class="bi bi-person-plus-fill me-1"></i> Add More Users
+                    </button>
+                    {% endif %}
+                    
+                    {% if enterprise_quota.ceo_has_card %}
+                    <a href="{% url 'card_edit' card_id=enterprise_quota.ceo_card.card_id %}" class="btn btn-outline-primary rounded-pill px-3 py-2 fw-semibold" id="btnHeaderMyCard">
+                        <i class="bi bi-person-badge me-1"></i> My Business Card
+                    </a>
+                    {% else %}
+                    <a href="{% url 'card_builder' %}" class="btn btn-outline-primary rounded-pill px-3 py-2 fw-semibold" id="btnHeaderCreateMyCard">
+                        <i class="bi bi-person-plus me-1"></i> Create My Business Card
+                    </a>
+                    {% endif %}
+                {% else %}
+                    <a href="{% url 'card_builder' %}" class="btn btn-primary rounded-pill px-4 py-2 shadow-sm fw-semibold" id="btnHeaderAddCard">
+                        <i class="bi bi-plus-circle me-1"></i> New Business Card
+                    </a>
+                {% endif %}
+            </div>
         </div>
 
         <!-- Metric Stat Cards -->
@@ -242,6 +308,125 @@
                 </div>
             </div>
         </div>
+
+        {% if enterprise_quota.is_enterprise and enterprise_quota.is_ceo %}
+        <!-- Team Members & Employee Card Delegation -->
+        <div class="card border-0 rounded-4 shadow-sm mb-4 overflow-hidden" id="sectionTeamMembers">
+            <div class="card-header bg-white border-0 py-3 px-4 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="bg-primary bg-opacity-10 text-primary rounded-circle p-2 fs-5 d-flex align-items-center justify-content-center" style="width:40px;height:40px;">
+                        <i class="bi bi-people-fill"></i>
+                    </div>
+                    <div>
+                        <h5 class="fw-bold mb-0">Team Members &amp; Employee Card Slots</h5>
+                        <p class="text-muted small mb-0">Employees log in using the credentials &amp; link you share to customize and generate their cards for free.</p>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-light text-dark border px-3 py-2 rounded-pill small">
+                        <strong>{{ employees_count }}</strong> Invited · <strong>{{ enterprise_quota.employee_slots_remaining }}</strong> Slots Available
+                    </span>
+                    {% if enterprise_quota.employee_slots_remaining > 0 %}
+                    <button type="button" class="btn btn-sm btn-primary rounded-pill px-3 py-2 fw-semibold" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                        <i class="bi bi-person-plus-fill me-1"></i> Add User
+                    </button>
+                    {% else %}
+                    <button type="button" class="btn btn-sm btn-warning text-dark rounded-pill px-3 py-2 fw-semibold" data-bs-toggle="modal" data-bs-target="#enterpriseTopupModal">
+                        <i class="bi bi-person-plus-fill me-1"></i> Add More Users
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if employees %}
+            <div class="table-responsive">
+                <table class="table align-middle table-hover mb-0">
+                    <thead class="table-light text-muted small text-uppercase">
+                        <tr>
+                            <th class="ps-4">Employee</th>
+                            <th>Role / Designation</th>
+                            <th>Login Email</th>
+                            <th>Password</th>
+                            <th>Card Status</th>
+                            <th class="text-end pe-4">Shareable Link &amp; Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for emp in employees %}
+                        <tr>
+                            <td class="ps-4">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="rounded-circle bg-primary bg-opacity-10 text-primary fw-bold d-flex align-items-center justify-content-center" style="width:38px;height:38px;font-size:14px;">
+                                        {{ emp.name|slice:":1"|upper }}
+                                    </div>
+                                    <div>
+                                        <div class="fw-semibold text-dark">{{ emp.name }}</div>
+                                        <div class="text-muted small">Joined {{ emp.created_at|date:"M d, Y" }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark border px-2 py-1 rounded-pill">{{ emp.role }}</span>
+                            </td>
+                            <td>
+                                <span class="fw-medium font-monospace small text-primary">{{ emp.email }}</span>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center gap-1 font-monospace small">
+                                    <span id="pwdDisplay_{{ emp.id }}">••••••••</span>
+                                    <button type="button" class="btn btn-sm btn-link text-muted p-0 ms-1" onclick="togglePasswordDisplay('{{ emp.id }}', '{{ emp.password|escapejs }}')" title="Show / Hide Password">
+                                        <i class="bi bi-eye" id="eyeIcon_{{ emp.id }}"></i>
+                                    </button>
+                                </div>
+                            </td>
+                            <td>
+                                {% if emp.has_card %}
+                                <div class="d-flex align-items-center gap-1">
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill">
+                                        <i class="bi bi-check-circle-fill me-1"></i> Card Built
+                                    </span>
+                                    <a href="{% url 'card_preview' card_id=emp.card.card_id %}" class="btn btn-sm btn-link text-primary p-0 ms-1" title="View Card">
+                                        <i class="bi bi-box-arrow-up-right"></i>
+                                    </a>
+                                </div>
+                                {% else %}
+                                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2 py-1 rounded-pill">
+                                    <i class="bi bi-hourglass-split me-1"></i> Pending Creation
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end pe-4">
+                                <div class="d-flex align-items-center justify-content-end gap-2">
+                                    <button type="button" class="btn btn-sm btn-outline-dark rounded-pill px-3 py-1 fw-semibold d-inline-flex align-items-center gap-1" onclick="copyEmployeeCredentials('{{ emp.name|escapejs }}', '{{ emp.email|escapejs }}', '{{ emp.password|escapejs }}', '{{ emp.share_link|escapejs }}', '{{ enterprise_quota.company_name|escapejs }}', {{ enterprise_quota.has_nfc|yesno:'true,false' }})">
+                                        <i class="bi bi-clipboard me-1"></i> Copy Link &amp; Details
+                                    </button>
+                                    <form method="post" action="{% url 'enterprise_remove_user' user_id=emp.id %}" style="display:inline;" onsubmit="return confirm('Remove employee {{ emp.name|escapejs }} from your enterprise team? This will free their card slot.');">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger rounded-circle p-0 d-inline-flex align-items-center justify-content-center" style="width:30px;height:30px;" title="Remove Employee">
+                                            <i class="bi bi-trash3" style="font-size:12px;"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="p-4 text-center bg-light bg-opacity-50">
+                <i class="bi bi-person-lines-fill text-muted display-6 mb-2 d-block"></i>
+                <h6 class="fw-bold mb-1">No Team Members Added Yet</h6>
+                <p class="text-muted small mb-3" style="max-width: 480px; margin: 0 auto;">
+                    You have <strong>{{ enterprise_quota.employee_slots_remaining }}</strong> available employee card slots in your bundle. Add your team members so they can log in and generate their own business cards for free.
+                </p>
+                <button type="button" class="btn btn-primary rounded-pill px-4 py-2 fw-semibold" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                    <i class="bi bi-person-plus-fill me-1"></i> Add Your First Employee
+                </button>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
 
         <!-- Cards Grid -->
         {% if cards %}
@@ -316,30 +501,31 @@
 
     </div>
 
-    <!-- Enterprise Limit Reached / Add More Business Cards Modal -->
+    <!-- Enterprise Limit Reached / Add More Users Modal -->
     <div class="modal fade" id="enterpriseTopupModal" tabindex="-1" aria-labelledby="enterpriseTopupModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content rounded-4 border-0 shadow-lg p-2">
                 <div class="modal-header border-0 pb-0">
                     <div>
                         <span class="badge bg-warning-subtle text-warning-emphasis rounded-pill px-3 py-1 mb-2">
-                            <i class="bi bi-lightning-charge-fill me-1"></i> Card Limit Reached
+                            <i class="bi bi-lightning-charge-fill me-1"></i> User Limit Reached
                         </span>
-                        <h5 class="modal-title fw-bold" id="enterpriseTopupModalLabel">Add More Business Cards</h5>
+                        <h5 class="modal-title fw-bold" id="enterpriseTopupModalLabel">Add More Users</h5>
                     </div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <form method="post" action="{% url 'enterprise_topup' %}" id="enterpriseTopupForm">
                     {% csrf_token %}
                     <input type="hidden" name="extra_cards" id="inputExtraCards" value="1">
+                    <input type="hidden" name="next" value="{% url 'card_list' %}">
                     <div class="modal-body pt-2">
                         <p class="text-muted small mb-3">
-                            You have created <strong>{{ enterprise_quota.cards_used }} / {{ enterprise_quota.card_limit }}</strong> business cards on your current Enterprise plan. Add extra business cards one by one as your team expands:
+                            You have allocated all <strong>{{ enterprise_quota.employees_count }}</strong> employee slots on your current Enterprise plan (<strong>{{ enterprise_quota.cards_used }} / {{ enterprise_quota.card_limit }}</strong> cards used). Add extra users as your team expands:
                         </p>
 
-                        <!-- Interactive Card Quantity Stepper (+1, +1, etc.) -->
+                        <!-- Interactive User Quantity Stepper (+1, +2, etc.) -->
                         <div class="p-3 rounded-4 border bg-light mb-3 text-center">
-                            <label class="form-label text-muted small fw-bold text-uppercase mb-2" style="letter-spacing:0.04em;">How many extra cards do you need?</label>
+                            <label class="form-label text-muted small fw-bold text-uppercase mb-2" style="letter-spacing:0.04em;">How many extra users do you need?</label>
                             
                             <div class="d-flex align-items-center justify-content-center gap-3 my-2">
                                 <button type="button" class="btn btn-outline-secondary rounded-circle" id="btnStepMinus" onclick="stepExtraCards(-1)" style="width:44px;height:44px;font-size:20px;display:grid;place-items:center;line-height:1;">
@@ -347,7 +533,7 @@
                                 </button>
                                 <div class="px-4 py-2 bg-white rounded-3 border shadow-sm" style="min-width:140px;">
                                     <div class="fs-2 fw-bolder text-primary lh-1" id="displayExtraCardsCount">+1</div>
-                                    <div class="text-muted fw-semibold" style="font-size:12px;" id="displayExtraCardsLabel">Card</div>
+                                    <div class="text-muted fw-semibold" style="font-size:12px;" id="displayExtraCardsLabel">User</div>
                                 </div>
                                 <button type="button" class="btn btn-primary rounded-circle" id="btnStepPlus" onclick="stepExtraCards(1)" style="width:44px;height:44px;font-size:20px;display:grid;place-items:center;line-height:1;">
                                     <i class="bi bi-plus-lg"></i>
@@ -356,17 +542,17 @@
 
                             <!-- Quick Increment Pills -->
                             <div class="d-flex justify-content-center gap-2 mt-3 flex-wrap">
-                                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1" onclick="setExtraCards(1)">+1 Card</button>
-                                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1" onclick="setExtraCards(2)">+2 Cards</button>
-                                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1" onclick="setExtraCards(5)">+5 Cards</button>
-                                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1" onclick="setExtraCards(10)">+10 Cards</button>
+                                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1" onclick="setExtraCards(1)">+1 User</button>
+                                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1" onclick="setExtraCards(2)">+2 Users</button>
+                                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1" onclick="setExtraCards(5)">+5 Users</button>
+                                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1" onclick="setExtraCards(10)">+10 Users</button>
                             </div>
                         </div>
 
                         <!-- Price Calculation Box -->
                         <div class="card border-0 bg-primary bg-opacity-10 rounded-3 p-3 mb-3">
                             <div class="d-flex justify-content-between align-items-center mb-1 text-muted small">
-                                <span>Rate per card</span>
+                                <span>Rate per user</span>
                                 <span class="fw-semibold text-dark">₹{{ extra_card_price|default:199 }}</span>
                             </div>
                             <div class="d-flex justify-content-between align-items-center pt-2 border-top border-primary border-opacity-25">
@@ -376,13 +562,13 @@
                         </div>
 
                         <div class="alert alert-success py-2 px-3 rounded-3 small mb-0">
-                            <i class="bi bi-shield-check me-1"></i> Simulated payment mode: clicking below immediately unlocks the cards and opens the builder.
+                            <i class="bi bi-shield-check me-1"></i> Simulated payment mode: clicking below immediately unlocks user slots.
                         </div>
                     </div>
                     <div class="modal-footer border-0 pt-0">
                         <button type="button" class="btn btn-light rounded-pill px-3" data-bs-dismiss="modal">Cancel</button>
                         <button type="button" class="btn btn-primary rounded-pill px-4 fw-semibold" id="btnTopupSubmit" onclick="openTopupRzpModal()">
-                            Pay ₹{{ extra_card_price|default:199 }} &amp; Add +1 Card
+                            Pay ₹{{ extra_card_price|default:199 }} &amp; Add +1 User
                         </button>
                     </div>
                 </form>
@@ -433,11 +619,180 @@
         </div>
     </div>
 
+    <!-- Add User / Employee Modal -->
+    <div class="modal fade" id="addUserModal" tabindex="-1" aria-labelledby="addUserModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow-lg p-2">
+                <div class="modal-header border-0 pb-0">
+                    <div>
+                        <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-1 mb-2">
+                            <i class="bi bi-buildings-fill me-1"></i> {{ enterprise_quota.company_name|default:"Enterprise Team" }}
+                        </span>
+                        <h5 class="modal-title fw-bold" id="addUserModalLabel">Add Team Member / Employee</h5>
+                        <p class="text-muted small mb-0">Assign a pre-paid business card slot from your enterprise bundle.</p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="post" action="{% url 'enterprise_add_user' %}" id="formAddUser">
+                    {% csrf_token %}
+                    <div class="modal-body pt-3">
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Employee Full Name</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0"><i class="bi bi-person"></i></span>
+                                <input type="text" name="full_name" class="form-control border-start-0" placeholder="e.g. Sarah Jenkins" required>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Work Email Address</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0"><i class="bi bi-envelope"></i></span>
+                                <input type="email" name="email" class="form-control border-start-0" placeholder="e.g. sarah@company.com" required>
+                            </div>
+                            <div class="form-text small">This will be the employee's login identifier.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Designation / Role (Optional)</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0"><i class="bi bi-briefcase"></i></span>
+                                <input type="text" name="employee_role" class="form-control border-start-0" placeholder="e.g. Senior Product Designer">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="d-flex align-items-center justify-content-between mb-1">
+                                <label class="form-label small fw-semibold mb-0">Set Initial Password</label>
+                                <button type="button" class="btn btn-link btn-sm p-0 text-primary text-decoration-none small" onclick="generateRandomPassword()">
+                                    <i class="bi bi-arrow-repeat me-1"></i> Generate Password
+                                </button>
+                            </div>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0"><i class="bi bi-lock"></i></span>
+                                <input type="text" name="password" id="inputNewEmployeePassword" class="form-control border-start-0 font-monospace" placeholder="e.g. BrandNest@2026" required>
+                            </div>
+                            <div class="form-text small">You can share this password directly with the employee.</div>
+                        </div>
+
+                        <div class="p-3 rounded-3 bg-light border">
+                            <div class="d-flex align-items-start gap-2">
+                                <i class="bi bi-shield-check text-success fs-5 lh-1"></i>
+                                <div class="small text-muted">
+                                    <strong>100% Free for Employee:</strong> When the employee logs in via the link, they can customize and generate their official business card {% if enterprise_quota.has_nfc %}+ custom Smart NFC card{% endif %} for <strong>₹0 (Free)</strong> because you have already pre-paid for this bundle.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 pt-0">
+                        <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary rounded-pill px-4 fw-semibold" id="btnSubmitAddUser">
+                            <i class="bi bi-check-lg me-1"></i> Add User &amp; Generate Link
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Employee Created Success Modal with One-Click Copy -->
+    {% if just_added_employee %}
+    <div class="modal fade" id="justAddedModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow-lg p-3 text-center">
+                <div class="bg-success bg-opacity-10 text-success rounded-circle d-inline-flex align-items-center justify-content-center mx-auto mb-3" style="width:60px;height:60px;">
+                    <i class="bi bi-check2-circle fs-2"></i>
+                </div>
+                <h5 class="fw-bold mb-1">Team Member Added!</h5>
+                <p class="text-muted small mb-3">Copy and share these login credentials and link with <strong>{{ just_added_employee.name }}</strong>:</p>
+
+                <div class="text-start p-3 rounded-3 bg-light border font-monospace small mb-3" id="justAddedShareBox" style="white-space: pre-wrap; word-break: break-all;">Hi {{ just_added_employee.name }},
+
+You've been invited by {{ just_added_employee.company_name }} to create your official digital business card{% if just_added_employee.has_nfc %} (+ Smart Contactless NFC Card){% endif %}!
+
+Login Link: {{ just_added_employee.link }}
+Email: {{ just_added_employee.email }}
+Password: {{ just_added_employee.password }}
+
+Your card is 100% pre-paid by {{ just_added_employee.company_name }}. Click the link to log in and customize your card for free!</div>
+
+                <div class="d-flex align-items-center justify-content-center gap-2">
+                    <button type="button" class="btn btn-primary rounded-pill px-4 py-2 fw-semibold" onclick="copyJustAddedInvite()">
+                        <i class="bi bi-clipboard-check-fill me-1" id="copyJustAddedIcon"></i>
+                        <span id="copyJustAddedText">Copy Invitation &amp; Link</span>
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-3 py-2" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
     const EXTRA_CARD_UNIT_PRICE = {{ extra_card_price|default:199 }};
     const CURRENT_LIMIT = {{ enterprise_quota.card_limit|default:5 }};
     let currentExtraCount = 1;
+
+    function copyEmployeeCredentials(name, email, password, link, companyName, hasNfc) {
+        let msg = `Hi ${name},\n\nYou've been invited by ${companyName} to create your official digital business card${hasNfc ? ' (+ Smart Contactless NFC Card)' : ''}!\n\nLogin Link: ${link}\nEmail: ${email}\nPassword: ${password}\n\nYour card is 100% pre-paid by ${companyName}. Click the link to log in and customize your card for free!`;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(msg).then(() => {
+                alert(`Credentials and invite link for ${name} copied to clipboard!\n\nYou can now paste and send this via Email or WhatsApp.`);
+            }).catch(() => {
+                prompt("Copy this invite message:", msg);
+            });
+        } else {
+            prompt("Copy this invite message:", msg);
+        }
+    }
+
+    function togglePasswordDisplay(empId, actualPassword) {
+        const span = document.getElementById('pwdDisplay_' + empId);
+        const icon = document.getElementById('eyeIcon_' + empId);
+        if (!span || !icon) return;
+        if (span.textContent === '••••••••') {
+            span.textContent = actualPassword;
+            icon.className = 'bi bi-eye-slash';
+        } else {
+            span.textContent = '••••••••';
+            icon.className = 'bi bi-eye';
+        }
+    }
+
+    function generateRandomPassword() {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#';
+        let pwd = '';
+        for (let i = 0; i < 10; i++) {
+            pwd += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        const input = document.getElementById('inputNewEmployeePassword');
+        if (input) input.value = pwd;
+    }
+
+    function copyJustAddedInvite() {
+        const text = document.getElementById('justAddedShareBox')?.innerText || '';
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+                const btnText = document.getElementById('copyJustAddedText');
+                if (btnText) btnText.textContent = 'Copied to Clipboard!';
+                setTimeout(() => {
+                    if (btnText) btnText.textContent = 'Copy Invitation & Link';
+                }, 3000);
+            });
+        } else {
+            prompt("Copy this invite message:", text);
+        }
+    }
+
+    {% if just_added_employee %}
+    document.addEventListener('DOMContentLoaded', function() {
+        const modal = document.getElementById('justAddedModal');
+        if (modal && window.bootstrap) {
+            new bootstrap.Modal(modal).show();
+        }
+    });
+    {% endif %}
 
     function updateTopupUI() {
         const count = currentExtraCount;
@@ -450,13 +805,13 @@
         if (countDisplay) countDisplay.textContent = `+${count}`;
 
         const labelDisplay = document.getElementById('displayExtraCardsLabel');
-        if (labelDisplay) labelDisplay.textContent = count === 1 ? 'Card' : 'Cards';
+        if (labelDisplay) labelDisplay.textContent = count === 1 ? 'User' : 'Users';
 
         const totalDisplay = document.getElementById('displayTotalPrice');
         if (totalDisplay) totalDisplay.textContent = `₹${total}`;
 
         const submitBtn = document.getElementById('btnTopupSubmit');
-        if (submitBtn) submitBtn.innerHTML = `Pay ₹${total} &amp; Add +${count} Card${count > 1 ? 's' : ''}`;
+        if (submitBtn) submitBtn.innerHTML = `Pay ₹${total} &amp; Add +${count} User${count > 1 ? 's' : ''}`;
         
         // Disable minus button at 1
         const minusBtn = document.getElementById('btnStepMinus');
@@ -479,7 +834,7 @@
     function openTopupRzpModal() {
         const count = currentExtraCount;
         const total = count * EXTRA_CARD_UNIT_PRICE;
-        document.getElementById('topupRzpDesc').textContent = `Add +${count} Business Card${count > 1 ? 's' : ''}`;
+        document.getElementById('topupRzpDesc').textContent = `Add +${count} Team User${count > 1 ? 's' : ''}`;
         document.getElementById('topupRzpAmt').textContent = `₹${total}`;
         document.getElementById('topupRzpPayBtn').innerHTML = `<i class="bi bi-lock-fill me-1"></i> Pay ₹${total} Now`;
         document.getElementById('topupRzpBody').style.display = 'block';

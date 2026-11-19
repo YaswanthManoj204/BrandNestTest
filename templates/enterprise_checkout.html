@@ -220,24 +220,50 @@ a { color: inherit; text-decoration: none; }
 
           <div class="bundle-list">
             {% for b in bundles %}
-            <div class="bundle-option {% if b.cards == selected_bundle %}active{% endif %}"
+            {% if forloop.counter == 4 %}
+            <div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 4px;padding-top:16px;border-top:1px dashed #CBD5E1;flex-wrap:wrap;gap:8px;">
+              <span style="font-size:11.5px;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;color:#0369A1;background:#E0F2FE;padding:4px 12px;border-radius:999px;display:inline-flex;align-items:center;gap:6px;">
+                <i class="bi bi-broadcast"></i> Digital + Smart NFC Physical Card Bundles
+              </span>
+              <span style="font-size:11.5px;color:#059669;font-weight:700;"><i class="bi bi-truck me-1"></i> Free Doorstep Delivery Included</span>
+            </div>
+            {% endif %}
+            <div class="bundle-option {% if b.id == selected_bundle %}active{% endif %}"
+                 data-id="{{ b.id }}"
                  data-cards="{{ b.cards }}"
+                 data-nfc="{{ b.nfc_cards }}"
+                 data-has-nfc="{% if b.has_nfc %}1{% else %}0{% endif %}"
+                 data-title="{{ b.title }}"
                  data-price="{{ b.price }}"
                  data-per="{{ b.per_card }}"
+                 data-team="{{ b.team_cards }}"
+                 data-meta="{{ b.meta }}"
                  onclick="selectBundle(this)">
               <div class="bundle-left">
                 <div class="bundle-radio"></div>
                 <div>
                   <div class="bundle-name">
-                    {{ b.cards }} Business Cards
-                    {% if b.badge %}<span class="bundle-badge">{{ b.badge }}</span>{% endif %}
+                    {{ b.title }}
+                    {% if b.has_nfc %}
+                    <span class="bundle-badge" style="background:#EFF6FF;color:#0284C7;border:1px solid #BAE6FD;">
+                      <i class="bi bi-broadcast me-1"></i>{{ b.badge }}
+                    </span>
+                    {% elif b.badge %}
+                    <span class="bundle-badge">{{ b.badge }}</span>
+                    {% endif %}
                   </div>
-                  <div class="bundle-meta">Includes your own card + {{ b.team_cards }} team member cards</div>
+                  <div class="bundle-meta">
+                    {% if b.has_nfc %}
+                    <i class="bi bi-check-circle-fill text-success me-1"></i>{{ b.meta }}
+                    {% else %}
+                    {{ b.meta }}
+                    {% endif %}
+                  </div>
                 </div>
               </div>
               <div class="bundle-price">
                 <div class="amount">₹{{ b.price }}</div>
-                <div class="per-card">₹{{ b.per_card }} / card</div>
+                <div class="per-card">₹{{ b.per_card }} / {% if b.has_nfc %}member{% else %}card{% endif %}</div>
               </div>
             </div>
             {% endfor %}
@@ -257,11 +283,21 @@ a { color: inherit; text-decoration: none; }
           {% endif %}
           <div class="summary-row">
             <span>Selected Plan</span>
-            <strong id="summaryPlanName">Enterprise ({{ selected_bundle }} Cards)</strong>
+            <strong id="summaryPlanName">Enterprise ({{ selected_name|default:"5 Business Cards" }})</strong>
           </div>
           <div class="summary-row">
             <span>Includes</span>
-            <span id="summaryIncludes">You + {{ selected_team_cards }} team cards</span>
+            <span id="summaryIncludes">
+              {% if selected_has_nfc %}
+              {{ selected_cards }} Digital Cards + {{ selected_nfc_cards }} Smart NFC Cards
+              {% else %}
+              You + {{ selected_team_cards }} team cards
+              {% endif %}
+            </span>
+          </div>
+          <div class="summary-row" id="summaryHardwareRow" style="{% if not selected_has_nfc %}display:none;{% endif %}background:#ECFDF5;padding:8px 12px;border-radius:10px;border:1px solid #A7F3D0;margin-bottom:8px;">
+            <span style="color:#065F46;font-weight:600;"><i class="bi bi-broadcast me-1"></i> NFC Hardware</span>
+            <strong id="summaryHardwareText" style="color:#047857;">{{ selected_nfc_cards }} Physical NFC Cards (Free Shipping)</strong>
           </div>
           <div class="summary-row">
             <span>Rate per card</span>
@@ -288,7 +324,7 @@ a { color: inherit; text-decoration: none; }
 
           <button type="button" class="pill blue full" id="btnCompleteEnterprisePay" onclick="openRazorpayTestModal()">
             <i class="bi bi-credit-card me-1"></i>
-            <span id="btnPayLabel">Pay ₹{{ selected_price }} &amp; Activate {{ selected_bundle }} Cards</span>
+            <span id="btnPayLabel">Pay ₹{{ selected_price }} &amp; Activate {{ selected_name }}</span>
           </button>
         </div>
       </div>
@@ -397,21 +433,33 @@ function selectBundle(el) {
   document.querySelectorAll('.bundle-option').forEach(opt => opt.classList.remove('active'));
   el.classList.add('active');
 
+  const id = el.dataset.id;
+  const title = el.dataset.title;
   const cards = parseInt(el.dataset.cards, 10);
+  const nfc = parseInt(el.dataset.nfc, 10) || 0;
+  const hasNfc = el.dataset.hasNfc === '1';
   const price = el.dataset.price;
   const per = el.dataset.per;
 
-  document.getElementById('inputBundleSize').value = cards;
-  document.getElementById('summaryPlanName').textContent = `Enterprise (${cards} Cards)`;
-  document.getElementById('summaryIncludes').textContent = `You + ${cards - 1} team cards`;
-  document.getElementById('summaryPerCard').textContent = `₹${per}`;
+  document.getElementById('inputBundleSize').value = id;
+  document.getElementById('summaryPlanName').textContent = `Enterprise (${title})`;
+  document.getElementById('summaryIncludes').textContent = hasNfc ? `${cards} Digital Cards + ${nfc} Smart NFC Cards` : `You + ${cards - 1} team cards`;
+
+  const hwRow = document.getElementById('summaryHardwareRow');
+  const hwText = document.getElementById('summaryHardwareText');
+  if (hwRow) {
+    hwRow.style.display = hasNfc ? 'flex' : 'none';
+    if (hwText) hwText.textContent = `${nfc} Physical NFC Cards (Free Shipping)`;
+  }
+
+  document.getElementById('summaryPerCard').textContent = `₹${per} / ${hasNfc ? 'member' : 'card'}`;
   document.getElementById('summaryTotalPrice').textContent = `₹${price}`;
-  document.getElementById('btnPayLabel').textContent = `Pay ₹${price} & Activate ${cards} Cards`;
+  document.getElementById('btnPayLabel').textContent = `Pay ₹${price} & Activate ${title}`;
   const rzpAmt = document.getElementById('rzpAmountLabel');
   const rzpDesc = document.getElementById('rzpOrderDesc');
   const rzpBtn = document.getElementById('rzpConfirmBtnText');
   if (rzpAmt) rzpAmt.textContent = `₹${price}`;
-  if (rzpDesc) rzpDesc.textContent = `Enterprise (${cards} Cards)`;
+  if (rzpDesc) rzpDesc.textContent = `Enterprise (${title})`;
   if (rzpBtn) rzpBtn.textContent = `Pay ₹${price} Now`;
 }
 

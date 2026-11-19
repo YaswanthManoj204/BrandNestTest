@@ -1,5 +1,6 @@
 import os
 import re
+import uuid
 import json
 import csv
 import subprocess
@@ -31,9 +32,80 @@ from apps.websites.models import Industry, Website, ContactSubmission
 
 
 ENTERPRISE_BUNDLES = [
-    {'cards': 5, 'price': 999, 'per_card': '199.80', 'team_cards': 4, 'badge': 'Starter'},
-    {'cards': 10, 'price': 1799, 'per_card': '179.90', 'team_cards': 9, 'badge': 'Most Popular'},
-    {'cards': 15, 'price': 2499, 'per_card': '166.60', 'team_cards': 14, 'badge': 'Best Value'},
+    # 1. Standard Digital Business Card Bundles
+    {
+        'id': '5',
+        'cards': 5,
+        'nfc_cards': 0,
+        'has_nfc': False,
+        'price': 999,
+        'per_card': '199.80',
+        'team_cards': 4,
+        'title': '5 Business Cards',
+        'badge': 'Starter',
+        'meta': 'Includes your own card + 4 team member cards',
+    },
+    {
+        'id': '10',
+        'cards': 10,
+        'nfc_cards': 0,
+        'has_nfc': False,
+        'price': 1799,
+        'per_card': '179.90',
+        'team_cards': 9,
+        'title': '10 Business Cards',
+        'badge': 'Most Popular',
+        'meta': 'Includes your own card + 9 team member cards',
+    },
+    {
+        'id': '15',
+        'cards': 15,
+        'nfc_cards': 0,
+        'has_nfc': False,
+        'price': 2499,
+        'per_card': '166.60',
+        'team_cards': 14,
+        'title': '15 Business Cards',
+        'badge': 'Best Value',
+        'meta': 'Includes your own card + 14 team member cards',
+    },
+    # 2. Digital + Smart Contactless NFC Physical Cards Bundles
+    {
+        'id': '5_nfc',
+        'cards': 5,
+        'nfc_cards': 5,
+        'has_nfc': True,
+        'price': 2499,
+        'per_card': '499.80',
+        'team_cards': 4,
+        'title': '5 Business Cards + 5 NFC Cards',
+        'badge': '5 Cards + 5 NFC',
+        'meta': 'Includes 5 Digital Cards + 5 Custom Smart NFC Cards with Free Express Delivery',
+    },
+    {
+        'id': '10_nfc',
+        'cards': 10,
+        'nfc_cards': 10,
+        'has_nfc': True,
+        'price': 4499,
+        'per_card': '449.90',
+        'team_cards': 9,
+        'title': '10 Business Cards + 10 NFC Cards',
+        'badge': '10 Cards + 10 NFC',
+        'meta': 'Includes 10 Digital Cards + 10 Custom Smart NFC Cards with Free Express Delivery',
+    },
+    {
+        'id': '15_nfc',
+        'cards': 15,
+        'nfc_cards': 15,
+        'has_nfc': True,
+        'price': 5999,
+        'per_card': '399.93',
+        'team_cards': 14,
+        'title': '15 Business Cards + 15 NFC Cards',
+        'badge': '15 Cards + 15 NFC',
+        'meta': 'Includes 15 Digital Cards + 15 Custom Smart NFC Cards with Free Express Delivery',
+    },
 ]
 EXTRA_CARD_PRICE_INR = 199
 
@@ -42,32 +114,87 @@ def _get_enterprise_quota(user):
     if not user or not user.is_authenticated:
         return {
             'is_enterprise': False,
+            'is_ceo': False,
+            'is_employee': False,
             'cards_used': 0,
             'card_limit': 0,
             'cards_remaining': 0,
             'limit_reached': False,
             'usage_percent': 0,
+            'nfc_card_limit': 0,
+            'has_nfc': False,
+            'company_name': '',
         }
-    plan = UserPlan.objects.filter(user=user, plan_type='enterprise').first()
-    if not plan:
+    plan = UserPlan.objects.filter(user=user).first()
+    if not plan or (plan.plan_type != 'enterprise' and not plan.enterprise_parent):
         return {
             'is_enterprise': False,
+            'is_ceo': False,
+            'is_employee': False,
             'cards_used': BusinessCard.objects.filter(user=user).count(),
             'card_limit': 0,
             'cards_remaining': 0,
             'limit_reached': False,
             'usage_percent': 0,
+            'nfc_card_limit': 0,
+            'has_nfc': False,
+            'company_name': '',
         }
-    used = BusinessCard.objects.filter(user=user).count()
+
+    # Case A: Invited Employee (Member of Enterprise Workspace)
+    if plan.enterprise_parent:
+        parent_plan = UserPlan.objects.filter(user=plan.enterprise_parent).first()
+        has_card = BusinessCard.objects.filter(user=user).exists()
+        nfc_allowed = 1 if (parent_plan and (parent_plan.nfc_card_limit or 0) > 0) or (plan.nfc_card_limit or 0) > 0 else 0
+        company_name_val = plan.company_name or (parent_plan.company_name if parent_plan else '') or 'Enterprise Team'
+        return {
+            'is_enterprise': True,
+            'is_ceo': False,
+            'is_employee': True,
+            'plan': plan,
+            'parent_plan': parent_plan,
+            'enterprise_parent': plan.enterprise_parent,
+            'company_name': company_name_val,
+            'cards_used': 1 if has_card else 0,
+            'card_limit': 1,
+            'cards_remaining': 0 if has_card else 1,
+            'nfc_card_limit': nfc_allowed,
+            'has_nfc': nfc_allowed > 0,
+            'limit_reached': has_card,
+            'usage_percent': 100 if has_card else 0,
+        }
+
+    # Case B: Enterprise CEO / Team Admin
+    from django.db.models import Q
+    employees = UserPlan.objects.filter(enterprise_parent=user).select_related('user')
+    employees_count = employees.count()
+    emp_user_ids = [e.user_id for e in employees]
+    ceo_cards = BusinessCard.objects.filter(user=user)
+    ceo_has_card = ceo_cards.exists()
+    all_cards = BusinessCard.objects.filter(Q(user=user) | Q(user_id__in=emp_user_ids))
+    used = all_cards.count()
     limit = plan.card_limit
     remaining = max(0, limit - used)
     pct = min(100, int((used / limit) * 100)) if limit > 0 else 100
+
+    # In a 5-card bundle: 1 CEO card + 4 employee slots = 5 cards
+    employee_slots_remaining = max(0, limit - 1 - employees_count)
+
     return {
         'is_enterprise': True,
+        'is_ceo': True,
+        'is_employee': False,
         'plan': plan,
+        'company_name': plan.company_name or 'Enterprise',
         'cards_used': used,
         'card_limit': limit,
         'cards_remaining': remaining,
+        'employee_slots_remaining': employee_slots_remaining,
+        'employees_count': employees_count,
+        'ceo_has_card': ceo_has_card,
+        'ceo_card': ceo_cards.first() if ceo_has_card else None,
+        'nfc_card_limit': getattr(plan, 'nfc_card_limit', 0) or 0,
+        'has_nfc': (getattr(plan, 'nfc_card_limit', 0) or 0) > 0,
         'limit_reached': used >= limit,
         'usage_percent': pct,
     }
@@ -311,39 +438,49 @@ def enterprise_company(request):
 
 def enterprise_checkout(request):
     """
-    Enterprise bundle selection (5, 10, 15 cards) & simulated payment page.
+    Enterprise bundle selection (5, 10, 15 digital cards & 5, 10, 15 cards + NFC) & simulated payment page.
     """
-    bundle_map = {b['cards']: b for b in ENTERPRISE_BUNDLES}
-    try:
-        selected_bundle = int(request.GET.get('bundle') or request.POST.get('bundle_size') or 5)
-    except (TypeError, ValueError):
-        selected_bundle = 5
-    if selected_bundle not in bundle_map:
-        selected_bundle = 5
+    bundle_map = {}
+    for b in ENTERPRISE_BUNDLES:
+        bundle_map[str(b['id'])] = b
+        # Fallback numeric map for cards count e.g. '5' -> 5 digital
+        if not b['has_nfc']:
+            bundle_map[str(b['cards'])] = b
+
+    raw_choice = str(request.GET.get('bundle') or request.POST.get('bundle_size') or '5').strip()
+    selected = bundle_map.get(raw_choice) or bundle_map.get('5') or ENTERPRISE_BUNDLES[0]
 
     if request.method == 'POST':
         if not request.user.is_authenticated:
-            next_target = f"{reverse('enterprise_checkout')}?bundle={selected_bundle}"
+            next_target = f"{reverse('enterprise_checkout')}?bundle={selected['id']}"
             return redirect(f"{reverse('login')}?next={next_target}")
 
-        bundle_info = bundle_map[selected_bundle]
+        bundle_info = selected
         plan, _ = UserPlan.objects.get_or_create(user=request.user)
         existing_cards = BusinessCard.objects.filter(user=request.user).count()
         if plan.plan_type == 'enterprise':
-            plan.card_limit += selected_bundle
+            plan.card_limit += bundle_info['cards']
         else:
             plan.plan_type = 'enterprise'
-            plan.card_limit = existing_cards + selected_bundle
+            plan.card_limit = existing_cards + bundle_info['cards']
+        plan.is_ceo = True
+        plan.enterprise_parent = None
+        plan.nfc_card_limit = (getattr(plan, 'nfc_card_limit', 0) or 0) + bundle_info['nfc_cards']
         plan.total_paid = (plan.total_paid or 0) + bundle_info['price']
         plan.save()
 
-        messages.success(
-            request,
-            f"Enterprise Plan activated! You can now build up to {plan.card_limit} business cards (including your own)."
-        )
+        if bundle_info['has_nfc']:
+            messages.success(
+                request,
+                f"Enterprise Bundle Activated! You can now build up to {plan.card_limit} business cards, and {bundle_info['nfc_cards']} Custom Smart Contactless NFC Physical Cards are included in your order with express doorstep delivery."
+            )
+        else:
+            messages.success(
+                request,
+                f"Enterprise Plan activated! You can now build up to {plan.card_limit} business cards (including your own)."
+            )
         return redirect('card_list')
 
-    selected = bundle_map[selected_bundle]
     plan_company_name = ''
     if request.user.is_authenticated:
         up = UserPlan.objects.filter(user=request.user).first()
@@ -351,7 +488,12 @@ def enterprise_checkout(request):
             plan_company_name = up.company_name
     return render(request, 'enterprise_checkout.html', {
         'bundles': ENTERPRISE_BUNDLES,
-        'selected_bundle': selected['cards'],
+        'selected_bundle': selected['id'],
+        'selected_bundle_obj': selected,
+        'selected_cards': selected['cards'],
+        'selected_nfc_cards': selected['nfc_cards'],
+        'selected_has_nfc': selected['has_nfc'],
+        'selected_name': selected['title'],
         'selected_price': selected['price'],
         'selected_per_card': selected['per_card'],
         'selected_team_cards': selected['team_cards'],
@@ -386,9 +528,144 @@ def enterprise_topup(request):
 
     messages.success(
         request,
-        f"Payment of ₹{total_cost} confirmed! Added +{extra_cards} business card(s). New limit: {plan.card_limit} cards."
+        f"Payment of ₹{total_cost} confirmed! Added +{extra_cards} user slot(s). New limit: {plan.card_limit} users."
     )
-    return redirect('card_builder')
+    redirect_target = request.POST.get('next') or request.GET.get('next') or 'card_list'
+    return redirect(redirect_target)
+
+
+@login_required(login_url='login')
+def enterprise_add_user(request):
+    """
+    Enterprise Team Delegation:
+    Allows company CEO to add employees with email and set a password,
+    generating a shareable login link so the employee can log in and generate their card for free.
+    """
+    import urllib.parse
+    if request.method != 'POST':
+        return redirect('card_list')
+
+    quota = _get_enterprise_quota(request.user)
+    if not quota['is_enterprise'] or not quota['is_ceo']:
+        messages.error(request, 'Only the Enterprise account owner can add team members.')
+        return redirect('card_list')
+
+    plan = quota['plan']
+    # Check slots: In an N-card bundle, total cards (CEO + employee cards) cannot exceed plan.card_limit
+    employees_count = UserPlan.objects.filter(enterprise_parent=request.user).count()
+    max_employees_allowed = max(0, plan.card_limit - 1)
+    if employees_count >= max_employees_allowed:
+        messages.error(
+            request,
+            f"You have already allocated all {max_employees_allowed} employee card slots in your {plan.card_limit}-card bundle. Please upgrade your plan or top-up to add more team members."
+        )
+        return redirect(f"{reverse('card_list')}?upgrade=1")
+
+    full_name = request.POST.get('full_name', '').strip()
+    email = request.POST.get('email', '').strip().lower()
+    password = request.POST.get('password', '').strip()
+    employee_role = request.POST.get('employee_role', '').strip()
+
+    if not email:
+        messages.error(request, 'Please provide an email address for the employee.')
+        return redirect('card_list')
+
+    if not password:
+        messages.error(request, 'Please set an initial login password for the employee.')
+        return redirect('card_list')
+
+    if len(password) < 4:
+        messages.error(request, 'Password must be at least 4 characters long.')
+        return redirect('card_list')
+
+    # Check if a user with this email already exists
+    existing_user = User.objects.filter(email__iexact=email).first()
+    if existing_user:
+        existing_plan, _ = UserPlan.objects.get_or_create(user=existing_user)
+        if existing_plan.is_ceo and existing_plan.user != request.user:
+            messages.error(request, f'User with email "{email}" is already registered as an enterprise CEO.')
+            return redirect('card_list')
+
+        existing_user.set_password(password)
+        if full_name:
+            existing_user.first_name = full_name
+        existing_user.save()
+
+        existing_plan.enterprise_parent = request.user
+        existing_plan.plan_type = 'enterprise'
+        existing_plan.company_name = quota.get('company_name') or ''
+        existing_plan.employee_role = employee_role
+        existing_plan.initial_password = password
+        existing_plan.card_limit = 1
+        existing_plan.nfc_card_limit = 1 if quota.get('has_nfc') else 0
+        existing_plan.save()
+        employee_user = existing_user
+        messages.success(request, f'Enrolled team member "{full_name or email}" into your enterprise workspace!')
+    else:
+        base_username = email.split('@')[0]
+        clean_name = re.sub(r'[^a-zA-Z0-9_]', '', base_username) or 'employee'
+        candidate_username = clean_name
+        counter = 1
+        while User.objects.filter(username__iexact=candidate_username).exists():
+            candidate_username = f"{clean_name}_{counter}"
+            counter += 1
+
+        employee_user = User.objects.create_user(
+            username=candidate_username,
+            email=email,
+            password=password,
+            first_name=full_name,
+        )
+        UserPlan.objects.create(
+            user=employee_user,
+            enterprise_parent=request.user,
+            plan_type='enterprise',
+            company_name=quota.get('company_name') or '',
+            employee_role=employee_role,
+            initial_password=password,
+            card_limit=1,
+            nfc_card_limit=1 if quota.get('has_nfc') else 0,
+        )
+
+    # Build direct shareable login URL that redirects directly to card builder
+    builder_path = reverse('card_builder')
+    login_path = f"{reverse('login')}?email={urllib.parse.quote(email)}&next={urllib.parse.quote(builder_path)}"
+    shareable_link = get_shareable_url(request, login_path)
+
+    request.session['just_added_employee'] = {
+        'name': full_name or email,
+        'email': email,
+        'password': password,
+        'role': employee_role or 'Team Member',
+        'link': shareable_link,
+        'company_name': quota.get('company_name') or 'Our Company',
+        'has_nfc': quota.get('has_nfc', False),
+    }
+
+    messages.success(
+        request,
+        f'Team member "{full_name or email}" added successfully! Send them their login link and credentials below.'
+    )
+    return redirect('card_list')
+
+
+@login_required(login_url='login')
+def enterprise_remove_user(request, user_id):
+    """
+    Remove an employee from the enterprise workspace, freeing their card slot.
+    """
+    if request.method != 'POST':
+        return redirect('card_list')
+
+    emp_plan = get_object_or_404(UserPlan, user_id=user_id, enterprise_parent=request.user)
+    emp_user = emp_plan.user
+    emp_name = emp_user.first_name or emp_user.email
+    BusinessCard.objects.filter(user=emp_user).delete()
+    emp_plan.delete()
+    emp_user.delete()
+
+    messages.success(request, f'Team member "{emp_name}" was removed. Their card slot has been freed.')
+    return redirect('card_list')
 
 
 def _extract_youtube_id(url):
@@ -614,7 +891,7 @@ def _build_default_card():
     )
 
 
-def _get_card_builder_context(active_card, is_edit):
+def _get_card_builder_context(active_card, is_edit, request=None):
     active_layout = active_card.layout_config or {}
     card_capabilities_json = json.dumps(active_layout.get('capabilities_items') or [])
     card_brands_json = json.dumps(active_layout.get('brands_items') or [])
@@ -627,7 +904,7 @@ def _get_card_builder_context(active_card, is_edit):
     yt_url = active_layout.get('youtube_video_url') or (active_card.social_links or {}).get('youtube_video') or ''
     card_yt_video_id = _extract_youtube_id(yt_url)
 
-    return {
+    ctx = {
         'card': active_card,
         'is_edit': is_edit,
         'card_yt_video_id': card_yt_video_id,
@@ -639,6 +916,9 @@ def _get_card_builder_context(active_card, is_edit):
         'card_section_order_json': card_section_order_json,
         'card_disabled_sections_json': card_disabled_sections_json,
     }
+    if request and request.user.is_authenticated:
+        ctx['enterprise_quota'] = _get_enterprise_quota(request.user)
+    return ctx
 
 
 @login_required(login_url='login')
@@ -659,13 +939,23 @@ def card_builder(request, card_id=None):
     else:
         quota = _get_enterprise_quota(request.user)
         if quota['is_enterprise']:
-            if quota['limit_reached']:
+            if quota['is_employee']:
+                # If employee already created their card, load it for viewing/editing
+                existing_card = BusinessCard.objects.filter(user=request.user).first()
+                if existing_card:
+                    target_card = existing_card
+                elif quota['limit_reached']:
+                    return redirect(f"{reverse('card_list')}?upgrade=1")
+            elif request.GET.get('edit_my') == '1':
+                ceo_card = BusinessCard.objects.filter(user=request.user).first()
+                if ceo_card:
+                    target_card = ceo_card
+            elif quota['limit_reached']:
                 return redirect(f"{reverse('card_list')}?upgrade=1")
         else:
             if request.GET.get('new') == '1':
                 target_card = None
             else:
-                # Personal user: if they already created a personal card, load it so they can see and edit their card
                 existing_card = BusinessCard.objects.filter(user=request.user).order_by('-created_at').first()
                 if existing_card:
                     target_card = existing_card
@@ -676,7 +966,7 @@ def card_builder(request, card_id=None):
         if not business_name:
             messages.error(request, 'Please provide your business name.')
             active_card = target_card or _build_default_card()
-            return render(request, 'card_builder.html', _get_card_builder_context(active_card, bool(target_card)))
+            return render(request, 'card_builder.html', _get_card_builder_context(active_card, bool(target_card), request))
 
         # 1. Extract Social Links (supports both form naming conventions)
         social_links = {
@@ -929,7 +1219,7 @@ def card_builder(request, card_id=None):
             if payments_data.get(f'{key}_enabled') and not payments_data.get(key):
                 messages.error(request, f'Please enter your {label} ID/link or turn off the {label} toggle.')
                 active_card = target_card or _build_default_card()
-                return render(request, 'card_builder.html', _get_card_builder_context(active_card, bool(target_card)))
+                return render(request, 'card_builder.html', _get_card_builder_context(active_card, bool(target_card), request))
 
         # More section (Document with File or URL, Google Drive, Address)
         more_doc_url = request.POST.get('more_doc_url', '').strip() or request.POST.get('more_pdf_url', '').strip()
@@ -1011,12 +1301,62 @@ def card_builder(request, card_id=None):
         nfc_ordered = request.POST.get('nfc_ordered', 'false').lower() in ('true', '1') or razorpay_amount == '999'
 
         quota = _get_enterprise_quota(request.user)
-        if not quota['is_enterprise']:
+        if quota['is_enterprise']:
+            company_name_val = quota.get('company_name') or 'Enterprise'
+            plan_label = f"{company_name_val} Enterprise Corporate Plan"
+            layout_config['payment_receipt'] = {
+                'gateway': 'Enterprise Pre-paid',
+                'payment_id': f"corp_{uuid.uuid4().hex[:10]}",
+                'amount': 0,
+                'currency': 'INR',
+                'status': 'captured',
+                'method': 'Corporate Account (Pre-paid by Company CEO)',
+                'plan': plan_label,
+                'paid_at': timezone.now().strftime('%d %b %Y, %I:%M %p'),
+            }
+            if nfc_ordered or quota.get('has_nfc'):
+                layout_config['nfc_card'] = {
+                    'ordered': True,
+                    'theme': (request.POST.get('nfc_theme') or 'obsidian_black').strip(),
+                    'name': (request.POST.get('nfc_name') or request.POST.get('owner_name') or '').strip(),
+                    'designation': (request.POST.get('nfc_designation') or role_title or '').strip(),
+                    'foil': (request.POST.get('nfc_foil') or 'gold').strip(),
+                    'website': (request.POST.get('nfc_website') or request.POST.get('website') or request.POST.get('existing_website') or 'www.brandnest.in').strip(),
+                    'company_name': (request.POST.get('nfc_company_name') or request.POST.get('business_name') or company_name_val).strip(),
+                    'pass_tagline': (request.POST.get('nfc_pass_tagline') or 'BrandNest Smart Pass').strip(),
+                    'chip_spec': (request.POST.get('nfc_chip_spec') or 'NTAG216 · 888 BYTES').strip(),
+                    'back_tagline': (request.POST.get('nfc_back_tagline') or 'SMART CONTACTLESS TOUCHPOINT').strip(),
+                    'tap_hint': (request.POST.get('nfc_tap_hint') or 'Tap against any smartphone to open card').strip(),
+                    'back_badge': (request.POST.get('nfc_back_badge') or 'Direct NFC Tap').strip(),
+                    'logo_data': (request.POST.get('nfc_logo_data') or '').strip(),
+                    'logo_scale': (request.POST.get('nfc_logo_scale') or '1.0').strip(),
+                    'positions': (request.POST.get('nfc_positions') or '{}').strip(),
+                    'status': 'Ready for Printing & Dispatch',
+                }
+            elif target_card and target_card.layout_config and 'nfc_card' in target_card.layout_config:
+                layout_config['nfc_card'] = target_card.layout_config['nfc_card']
+                if request.POST.get('nfc_theme') or request.POST.get('nfc_website') or request.POST.get('nfc_name'):
+                    layout_config['nfc_card'].update({
+                        'theme': (request.POST.get('nfc_theme') or layout_config['nfc_card'].get('theme', 'obsidian_black')).strip(),
+                        'name': (request.POST.get('nfc_name') or layout_config['nfc_card'].get('name', '')).strip(),
+                        'designation': (request.POST.get('nfc_designation') or layout_config['nfc_card'].get('designation', '')).strip(),
+                        'foil': (request.POST.get('nfc_foil') or layout_config['nfc_card'].get('foil', 'gold')).strip(),
+                        'website': (request.POST.get('nfc_website') or layout_config['nfc_card'].get('website', 'www.brandnest.in')).strip(),
+                        'company_name': (request.POST.get('nfc_company_name') or layout_config['nfc_card'].get('company_name', '')).strip(),
+                        'pass_tagline': (request.POST.get('nfc_pass_tagline') or layout_config['nfc_card'].get('pass_tagline', 'BrandNest Smart Pass')).strip(),
+                        'chip_spec': (request.POST.get('nfc_chip_spec') or layout_config['nfc_card'].get('chip_spec', 'NTAG216 · 888 BYTES')).strip(),
+                        'back_tagline': (request.POST.get('nfc_back_tagline') or layout_config['nfc_card'].get('back_tagline', 'SMART CONTACTLESS TOUCHPOINT')).strip(),
+                        'tap_hint': (request.POST.get('nfc_tap_hint') or layout_config['nfc_card'].get('tap_hint', 'Tap against any smartphone to open card')).strip(),
+                        'back_badge': (request.POST.get('nfc_back_badge') or layout_config['nfc_card'].get('back_badge', 'Direct NFC Tap')).strip(),
+                        'logo_data': (request.POST.get('nfc_logo_data') or layout_config['nfc_card'].get('logo_data', '')).strip(),
+                        'logo_scale': (request.POST.get('nfc_logo_scale') or layout_config['nfc_card'].get('logo_scale', '1.0')).strip(),
+                        'positions': (request.POST.get('nfc_positions') or layout_config['nfc_card'].get('positions', '{}')).strip(),
+                    })
+        else:
             paid_amount = 999 if nfc_ordered else 499
             plan_label = 'Personal Pro + Physical NFC Card' if nfc_ordered else 'Personal Pro Lifetime'
             if razorpay_payment_id or not target_card:
                 if not razorpay_payment_id:
-                    import uuid
                     razorpay_payment_id = f"pay_demo_{uuid.uuid4().hex[:10]}"
                 layout_config['payment_receipt'] = {
                     'gateway': 'Razorpay (Demo)',
@@ -1160,23 +1500,30 @@ def card_builder(request, card_id=None):
                 card.slug = custom_slug_clean
 
         card.save()
-        if target_card and not request.POST.get('razorpay_payment_id'):
-            messages.success(request, f'Business card for "{card.business_name}" updated successfully!')
-            return redirect('card_preview', card_id=card.card_id)
-
         quota = _get_enterprise_quota(request.user)
-        if quota['is_enterprise']:
-            messages.success(
-                request,
-                f'Business card for "{card.business_name}" has been generated! ({quota["cards_used"]} / {quota["card_limit"]} cards used)'
-            )
-            return redirect('card_list')
 
-        if nfc_ordered and not NFCTag.objects.filter(card=card).exists():
+        if (nfc_ordered or quota.get('has_nfc')) and not NFCTag.objects.filter(card=card).exists():
             try:
                 NFCTag.objects.create(card=card, nfc_mode='web_card')
             except Exception:
                 pass
+
+        if target_card and not request.POST.get('razorpay_payment_id') and not quota['is_enterprise']:
+            messages.success(request, f'Business card for "{card.business_name}" updated successfully!')
+            return redirect('card_preview', card_id=card.card_id)
+
+        if quota['is_enterprise']:
+            if quota['is_employee']:
+                messages.success(
+                    request,
+                    f'Your business card for "{card.business_name}" is ready! Pre-paid & covered by {quota["company_name"]} enterprise plan.'
+                )
+            else:
+                messages.success(
+                    request,
+                    f'Business card for "{card.business_name}" has been generated!'
+                )
+            return redirect('card_preview', card_id=card.card_id)
 
         if nfc_ordered:
             messages.success(request, f'Payment of ₹999 received via Razorpay (Demo)! Your digital business card and custom NFC card for "{card.business_name}" have been generated.')
@@ -1185,7 +1532,26 @@ def card_builder(request, card_id=None):
         return redirect('card_preview', card_id=card.card_id)
 
     active_card = target_card if target_card else _build_default_card()
-    return render(request, 'card_builder.html', _get_card_builder_context(active_card, bool(target_card)))
+    if not target_card and request.user.is_authenticated:
+        quota = _get_enterprise_quota(request.user)
+        if quota['is_employee']:
+            if not active_card.owner_name:
+                active_card.owner_name = request.user.first_name or request.user.username
+            if not active_card.email:
+                active_card.email = request.user.email
+            if not active_card.business_name:
+                active_card.business_name = quota.get('company_name') or ''
+            if not active_card.tagline and quota['plan'].employee_role:
+                active_card.tagline = quota['plan'].employee_role
+        elif quota['is_ceo']:
+            if not active_card.business_name:
+                active_card.business_name = quota.get('company_name') or ''
+            if not active_card.owner_name:
+                active_card.owner_name = request.user.first_name or request.user.username
+            if not active_card.email:
+                active_card.email = request.user.email
+
+    return render(request, 'card_builder.html', _get_card_builder_context(active_card, bool(target_card), request))
 
 
 @login_required(login_url='login')
@@ -1210,8 +1576,38 @@ def card_list(request):
     """
     SaaS Business Cards Manager:
     Lists all cards with status, views, preview link, edit in builder, and delete options.
+    For Enterprise CEO, also manages team members / employees, quotas, and invitation links.
     """
-    if request.user.is_authenticated and (request.user.is_superuser or request.user.is_staff):
+    import urllib.parse
+    enterprise_quota = _get_enterprise_quota(request.user)
+    employees = []
+
+    if enterprise_quota['is_enterprise'] and enterprise_quota['is_ceo']:
+        emp_plans = UserPlan.objects.filter(enterprise_parent=request.user).select_related('user').order_by('-created_at')
+        emp_user_ids = [ep.user_id for ep in emp_plans]
+        cards = BusinessCard.objects.filter(
+            Q(user=request.user) | Q(user_id__in=emp_user_ids)
+        ).order_by('-created_at')
+
+        builder_path = reverse('card_builder')
+        for ep in emp_plans:
+            emp_card = BusinessCard.objects.filter(user=ep.user).first()
+            login_path = f"{reverse('login')}?email={urllib.parse.quote(ep.user.email)}&next={urllib.parse.quote(builder_path)}"
+            share_link = get_shareable_url(request, login_path)
+            employees.append({
+                'id': ep.user.id,
+                'user': ep.user,
+                'plan': ep,
+                'email': ep.user.email,
+                'name': ep.user.first_name or ep.user.email.split('@')[0],
+                'role': ep.employee_role or 'Team Member',
+                'password': ep.initial_password or '',
+                'card': emp_card,
+                'has_card': emp_card is not None,
+                'share_link': share_link,
+                'created_at': ep.created_at,
+            })
+    elif request.user.is_authenticated and (request.user.is_superuser or request.user.is_staff):
         cards = BusinessCard.objects.all().order_by('-created_at')
     elif request.user.is_authenticated:
         cards = BusinessCard.objects.filter(user=request.user).order_by('-created_at')
@@ -1220,15 +1616,17 @@ def card_list(request):
 
     total_views = sum(c.views_count for c in cards) if cards else 0
     published_count = sum(1 for c in cards if c.is_published) if cards else 0
-    enterprise_quota = _get_enterprise_quota(request.user)
     show_upgrade_modal = (
         request.GET.get('upgrade') == '1'
         and enterprise_quota['is_enterprise']
         and enterprise_quota['limit_reached']
     )
+    just_added = request.session.pop('just_added_employee', None)
 
     return render(request, 'card_list.html', {
         'cards': cards,
+        'employees': employees,
+        'employees_count': len(employees),
         'total_count': cards.count() if hasattr(cards, 'count') else len(cards),
         'total_views': total_views,
         'published_count': published_count,
@@ -1236,6 +1634,7 @@ def card_list(request):
         'bundles': ENTERPRISE_BUNDLES,
         'extra_card_price': EXTRA_CARD_PRICE_INR,
         'show_upgrade_modal': show_upgrade_modal,
+        'just_added_employee': just_added,
     })
 
 
@@ -1576,6 +1975,28 @@ def login_view(request):
                 request.session.set_expiry(0)  # Browser session expiry
 
             messages.success(request, f'Welcome back, {user.first_name or user.username}!')
+
+            # If no explicit next parameter was provided, route smartly:
+            explicit_next = (request.GET.get('next') or request.POST.get('next') or '').strip()
+            if not explicit_next or next_url == 'landing':
+                user_quota = _get_enterprise_quota(user)
+                if user_quota['is_enterprise']:
+                    if user_quota['is_employee']:
+                        emp_card = BusinessCard.objects.filter(user=user).first()
+                        if emp_card:
+                            return redirect('card_edit', card_id=emp_card.card_id)
+                        return redirect('card_builder')
+                    elif user_quota['is_ceo']:
+                        ceo_card = BusinessCard.objects.filter(user=user).first()
+                        if ceo_card:
+                            return redirect('card_edit', card_id=ceo_card.card_id)
+                        return redirect('card_list')
+                else:
+                    user_card = BusinessCard.objects.filter(user=user).order_by('-created_at').first()
+                    if user_card:
+                        return redirect('card_edit', card_id=user_card.card_id)
+                    return redirect('card_builder')
+
             return redirect(next_url)
         else:
             messages.error(request, 'Invalid email/username or password. Please verify your credentials.')
@@ -1584,7 +2005,11 @@ def login_view(request):
                 'next': next_url,
             })
 
-    return render(request, 'login.html', {'next': next_url})
+    initial_identifier = request.GET.get('email') or request.GET.get('login_identifier') or ''
+    return render(request, 'login.html', {
+        'next': next_url,
+        'login_identifier': initial_identifier,
+    })
 
 
 def logout_view(request):

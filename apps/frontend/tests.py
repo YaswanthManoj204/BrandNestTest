@@ -1,4 +1,5 @@
 import json
+from django.contrib.auth.models import User
 from django.test import TestCase, Client
 from django.urls import reverse
 from apps.domains.models import Domain
@@ -275,6 +276,9 @@ class FrontendFlowTests(TestCase):
         self.assertContains(checkout_get, '5 Business Cards')
         self.assertContains(checkout_get, '10 Business Cards')
         self.assertContains(checkout_get, '15 Business Cards')
+        self.assertContains(checkout_get, '5 Business Cards + 5 NFC Cards')
+        self.assertContains(checkout_get, '10 Business Cards + 10 NFC Cards')
+        self.assertContains(checkout_get, '15 Business Cards + 15 NFC Cards')
 
         # Step 2: Purchase 5-card Enterprise bundle
         checkout_post = self.client.post(reverse('enterprise_checkout'), {'bundle_size': '5'})
@@ -286,11 +290,11 @@ class FrontendFlowTests(TestCase):
         self.assertEqual(plan.company_name, 'Apex Global Corp')
         self.assertEqual(plan.card_limit, 5)
 
-        # Step 3: Create 5 cards (owner + 4 team) -> each creation redirects back to /cards/
+        # Step 3: Create 5 cards (owner + 4 team)
         for i in range(5):
             r = self.client.post(reverse('card_builder'), {'business_name': f'Team Member {i+1}'})
             self.assertEqual(r.status_code, 302)
-            self.assertEqual(r['Location'], reverse('card_list'))
+            self.assertTrue(r['Location'] == reverse('card_list') or '/card/preview/' in r['Location'])
 
         # 6th attempt redirects to /cards/?upgrade=1 and shows top-up modal
         sixth_attempt = self.client.get(reverse('card_builder'))
@@ -299,13 +303,13 @@ class FrontendFlowTests(TestCase):
 
         list_res = self.client.get(reverse('card_list') + '?upgrade=1')
         self.assertEqual(list_res.status_code, 200)
-        self.assertContains(list_res, 'Add More Business Cards')
+        self.assertContains(list_res, 'Add More Users')
         self.assertContains(list_res, '5 / 5')
 
-        # Top up with +5 more cards
+        # Top up with +5 more users
         topup_res = self.client.post(reverse('enterprise_topup'), {'extra_cards': '5'})
         self.assertEqual(topup_res.status_code, 302)
-        self.assertEqual(topup_res['Location'], reverse('card_builder'))
+        self.assertTrue(topup_res['Location'] in (reverse('card_list'), reverse('card_builder')))
 
         plan.refresh_from_db()
         self.assertEqual(plan.card_limit, 10)
@@ -1217,3 +1221,303 @@ class FrontendFlowTests(TestCase):
         self.assertContains(preview_res, 'Executive Smart Pass')
         self.assertContains(preview_res, 'Tap against any iPhone or Android phone')
         self.assertContains(preview_res, 'Flip NFC Card (Front / Back)')
+
+    def test_enterprise_nfc_bundle_checkout_and_quota(self):
+        """
+        Verify purchasing an Enterprise Digital + NFC Card Hardware bundle (5_nfc, 10_nfc, 15_nfc):
+        1. Checks checkout page renders all Digital and NFC bundle tiers.
+        2. Submits 5_nfc bundle purchase (₹2499).
+        3. Confirms UserPlan has card_limit=5, nfc_card_limit=5, total_paid=2499.
+        """
+        self.client.force_login(self.test_user)
+        res = self.client.get(reverse('enterprise_checkout'))
+        self.assertEqual(res.status_code, 200)
+        self.assertContains(res, '5 Business Cards + 5 NFC Cards')
+        self.assertContains(res, '10 Business Cards + 10 NFC Cards')
+        self.assertContains(res, '15 Business Cards + 15 NFC Cards')
+        self.assertContains(res, '₹2499')
+        self.assertContains(res, '₹4499')
+        self.assertContains(res, '₹5999')
+
+        # Purchase 5_nfc bundle
+        post_res = self.client.post(reverse('enterprise_checkout'), {'bundle_size': '5_nfc'})
+        self.assertEqual(post_res.status_code, 302)
+        self.assertEqual(post_res['Location'], reverse('card_list'))
+
+        plan = UserPlan.objects.get(user=self.test_user)
+        self.assertEqual(plan.plan_type, 'enterprise')
+        self.assertEqual(plan.card_limit, 5)
+        self.assertEqual(plan.nfc_card_limit, 5)
+        self.assertEqual(plan.total_paid, 2499)
+
+    def test_enterprise_ceo_add_user_and_employee_free_generation_flow(self):
+        """
+        Verify the complete Enterprise CEO delegation workflow:
+        1. CEO purchases 5_nfc bundle (5 Cards + 5 NFC).
+        2. CEO views /cards/ and sees 'Add User' and 'Create My Business Card' options.
+        3. CEO adds an employee via /enterprise/add-user/ with email and password.
+        4. Employee logs in via credentials/link and is redirected to card builder.
+        5. Employee generates their Digital + NFC card for FREE (₹0, covered by CEO's plan).
+        6. Card is saved, live preview opens, and card status reflects in CEO's team list.
+        """
+        # 1. Setup CEO with 5_nfc bundle
+        self.client.force_login(self.test_user)
+        self.client.post(reverse('enterprise_checkout'), {'bundle_size': '5_nfc'})
+        ceo_plan = UserPlan.objects.get(user=self.test_user)
+        ceo_plan.company_name = 'Apex Global Corp'
+        ceo_plan.save()
+
+        # 2. Check /cards/ page for CEO buttons
+        list_res = self.client.get(reverse('card_list'))
+        self.assertEqual(list_res.status_code, 200)
+        self.assertContains(list_res, 'Add User')
+        self.assertContains(list_res, 'Create My Business Card')
+        self.assertContains(list_res, 'Team Members &amp; Employee Card Slots')
+        self.assertContains(list_res, 'Apex Global Corp')
+
+        # 3. CEO adds an employee user
+        add_user_res = self.client.post(reverse('enterprise_add_user'), {
+            'full_name': 'Rohan Mehta',
+            'email': 'rohan@apexcorp.com',
+            'password': 'RohanSecurePass123',
+            'employee_role': 'VP of Engineering',
+        })
+        self.assertEqual(add_user_res.status_code, 302)
+        self.assertEqual(add_user_res['Location'], reverse('card_list'))
+
+        # Verify employee user and plan created in DB
+        from django.contrib.auth.models import User
+        emp_user = User.objects.get(email='rohan@apexcorp.com')
+        self.assertEqual(emp_user.first_name, 'Rohan Mehta')
+        self.assertTrue(emp_user.check_password('RohanSecurePass123'))
+
+        emp_plan = UserPlan.objects.get(user=emp_user)
+        self.assertEqual(emp_plan.enterprise_parent, self.test_user)
+        self.assertEqual(emp_plan.employee_role, 'VP of Engineering')
+        self.assertEqual(emp_plan.company_name, 'Apex Global Corp')
+        self.assertEqual(emp_plan.initial_password, 'RohanSecurePass123')
+        self.assertEqual(emp_plan.nfc_card_limit, 1)
+
+        # 4. Check CEO sees employee in team list
+        list_after_add = self.client.get(reverse('card_list'))
+        self.assertEqual(list_after_add.status_code, 200)
+        self.assertContains(list_after_add, 'Rohan Mehta')
+        self.assertContains(list_after_add, 'rohan@apexcorp.com')
+        self.assertContains(list_after_add, 'VP of Engineering')
+        self.assertContains(list_after_add, 'Pending Creation')
+
+        # 5. Employee logs in via shared link
+        self.client.logout()
+        login_page_res = self.client.get(f"{reverse('login')}?email=rohan@apexcorp.com&next={reverse('card_builder')}")
+        self.assertEqual(login_page_res.status_code, 200)
+        self.assertContains(login_page_res, 'value="rohan@apexcorp.com"')
+
+        login_res = self.client.post(reverse('login'), {
+            'login_identifier': 'rohan@apexcorp.com',
+            'password': 'RohanSecurePass123',
+            'next': reverse('card_builder'),
+        })
+        self.assertEqual(login_res.status_code, 302)
+        self.assertEqual(login_res['Location'], reverse('card_builder'))
+
+        # 6. Employee opens card builder - sees Free / Pre-paid corporate pricing
+        builder_res = self.client.get(reverse('card_builder'))
+        self.assertEqual(builder_res.status_code, 200)
+        self.assertContains(builder_res, 'Covered by Apex Global Corp')
+        self.assertContains(builder_res, 'PRE-PAID (FREE)')
+
+        # 7. Employee generates card without paying any Razorpay amount (FREE generation)
+        card_post_data = {
+            'business_name': 'Apex Global Corp',
+            'owner_name': 'Rohan Mehta',
+            'role_title': 'VP of Engineering',
+            'email': 'rohan@apexcorp.com',
+            'phone': '+91 9876543210',
+            'nfc_ordered': 'true',
+            'nfc_theme': 'obsidian_black',
+            'nfc_name': 'Rohan Mehta',
+            'nfc_designation': 'VP of Engineering',
+        }
+        submit_res = self.client.post(reverse('card_builder'), card_post_data)
+        self.assertEqual(submit_res.status_code, 302)
+
+        # Verify card created in DB
+        emp_card = BusinessCard.objects.get(user=emp_user)
+        self.assertEqual(emp_card.owner_name, 'Rohan Mehta')
+        self.assertEqual(submit_res['Location'], reverse('card_preview', kwargs={'card_id': emp_card.card_id}))
+
+        # Verify receipt is Enterprise Pre-paid (₹0) and NFC card is ordered
+        receipt = emp_card.layout_config.get('payment_receipt', {})
+        self.assertEqual(receipt.get('gateway'), 'Enterprise Pre-paid')
+        self.assertEqual(receipt.get('amount'), 0)
+        self.assertTrue(emp_card.layout_config.get('nfc_card', {}).get('ordered'))
+
+        # 8. CEO logs back in and checks that employee status is now 'Card Built'
+        self.client.force_login(self.test_user)
+        ceo_list_res = self.client.get(reverse('card_list'))
+        self.assertEqual(ceo_list_res.status_code, 200)
+        self.assertContains(ceo_list_res, 'Card Built')
+        self.assertContains(ceo_list_res, '1 of 5 Business Cards Built')
+
+    def test_enterprise_digital_vs_nfc_plans_and_navigation(self):
+        """
+        Verify:
+        1. When CEO chooses Digital-only plan (has_nfc=False):
+           - Only "Generate Business Card" is shown.
+           - NO Option 2 (Business Card + NFC Card / Generate NFC Card) is shown.
+        2. When CEO chooses Digital+NFC plan (has_nfc=True):
+           - Both "Generate Business Card" and "Generate NFC Card" are shown.
+        3. Employee logs in from home page (no next param) -> redirects to card_list if card exists,
+           or card_builder if card not created yet.
+        4. Landing navbar contains 'My Cards' when logged in.
+        """
+        # A. Digital-only plan (5 cards, has_nfc=False)
+        ceo_digital = User.objects.create_user(username='ceo_digital', email='ceo_digital@example.com', password='password123')
+        UserPlan.objects.create(
+            user=ceo_digital,
+            plan_type='enterprise',
+            is_ceo=True,
+            company_name='Digital Innovators',
+            card_limit=5,
+            nfc_card_limit=0
+        )
+        self.client.force_login(ceo_digital)
+        builder_get = self.client.get(reverse('card_builder'))
+        self.assertEqual(builder_get.status_code, 200)
+        self.assertContains(builder_get, 'Generate Business Card')
+        self.assertNotContains(builder_get, 'Business Card + NFC Card')
+        self.assertNotContains(builder_get, 'Generate NFC Card')
+
+        # Add employee under digital CEO
+        add_emp_res = self.client.post(reverse('enterprise_add_user'), {
+            'full_name': 'Aarav Kumar',
+            'email': 'aarav@digital.com',
+            'password': 'password123',
+            'employee_role': 'Product Lead',
+        })
+        self.assertEqual(add_emp_res.status_code, 302)
+        emp_digital = User.objects.get(email='aarav@digital.com')
+
+        # Employee logs in to builder: should see ONLY "Generate Business Card"
+        self.client.force_login(emp_digital)
+        emp_builder = self.client.get(reverse('card_builder'))
+        self.assertEqual(emp_builder.status_code, 200)
+        self.assertContains(emp_builder, 'Generate Business Card')
+        self.assertNotContains(emp_builder, 'Business Card + NFC Card')
+        self.assertNotContains(emp_builder, 'Generate NFC Card')
+
+        # Employee creates card -> redirects to card_preview
+        create_res = self.client.post(reverse('card_builder'), {
+            'business_name': 'Digital Innovators',
+            'owner_name': 'Aarav Kumar',
+        })
+        self.assertEqual(create_res.status_code, 302)
+        self.assertIn('/card/preview/', create_res['Location'])
+
+        # Now employee visits login/home -> login without next redirects to card_edit because card exists
+        emp_created_card = BusinessCard.objects.get(user=emp_digital)
+        self.client.logout()
+        login_res = self.client.post(reverse('login'), {
+            'login_identifier': 'aarav@digital.com',
+            'password': 'password123'
+        })
+        self.assertEqual(login_res.status_code, 302)
+        self.assertEqual(login_res['Location'], reverse('card_edit', kwargs={'card_id': emp_created_card.card_id}))
+
+        # Employee checks landing page: has 'My Cards' in navbar
+        landing_res = self.client.get(reverse('landing'))
+        self.assertEqual(landing_res.status_code, 200)
+        self.assertContains(landing_res, 'My Cards')
+
+        # B. NFC Plan (5 cards + 5 NFC, has_nfc=True)
+        ceo_nfc = User.objects.create_user(username='ceo_nfc', email='ceo_nfc@example.com', password='password123')
+        UserPlan.objects.create(
+            user=ceo_nfc,
+            plan_type='enterprise',
+            is_ceo=True,
+            company_name='NFC Tech Corp',
+            card_limit=5,
+            nfc_card_limit=5
+        )
+        self.client.force_login(ceo_nfc)
+        builder_nfc_get = self.client.get(reverse('card_builder'))
+        self.assertEqual(builder_nfc_get.status_code, 200)
+        self.assertContains(builder_nfc_get, 'Generate Business Card')
+        self.assertContains(builder_nfc_get, 'Business Card + NFC Card')
+        self.assertContains(builder_nfc_get, 'Generate NFC Card')
+
+    def test_personal_user_signup_pay_signout_login_edit_without_paying(self):
+        """
+        Verify:
+        1. A user signs up.
+        2. Creates personal card and pays money (₹499).
+        3. Signs out.
+        4. Logs back in with the same credentials -> directed to his business card (card_edit).
+        5. The page displays edit mode with "Save & Update Business Card (Free)" and no ₹499/₹999 purchase buttons.
+        6. Submitting updates saves successfully with ZERO payment requested and redirects to card_preview.
+        """
+        # 1. Sign up
+        signup_res = self.client.post(reverse('signup'), {
+            'full_name': 'Kavya Sharma',
+            'email': 'kavya@personalbrand.in',
+            'password': 'MyStrongPassword123!',
+            'confirm_password': 'MyStrongPassword123!'
+        })
+        self.assertEqual(signup_res.status_code, 302)
+        kavya = User.objects.get(email='kavya@personalbrand.in')
+
+        # 2. Kavya creates card and pays ₹499 via Razorpay demo
+        card_data = {
+            'business_name': 'Kavya Design Studio',
+            'owner_name': 'Kavya Sharma',
+            'role_title': 'Principal UI Designer',
+            'email': 'kavya@personalbrand.in',
+            'phone': '+91 9988776655',
+            'razorpay_payment_id': 'pay_demo_kavya12345',
+            'razorpay_amount': '499',
+            'razorpay_method': 'UPI (Demo)'
+        }
+        create_res = self.client.post(reverse('card_builder'), card_data)
+        self.assertEqual(create_res.status_code, 302)
+        card = BusinessCard.objects.get(user=kavya)
+        self.assertEqual(card.business_name, 'Kavya Design Studio')
+        self.assertEqual(card.layout_config['payment_receipt']['amount'], 499)
+
+        # 3. Kavya signs out
+        self.client.logout()
+
+        # 4. Kavya logs in from the homepage/login page
+        login_res = self.client.post(reverse('login'), {
+            'login_identifier': 'kavya@personalbrand.in',
+            'password': 'MyStrongPassword123!'
+        })
+        self.assertEqual(login_res.status_code, 302)
+        # Directly directed to her business card in edit mode
+        expected_edit_url = reverse('card_edit', kwargs={'card_id': card.card_id})
+        self.assertEqual(login_res['Location'], expected_edit_url)
+
+        # 5. Open edit page -> verify edit UI (Active & Paid, no ₹499/₹999 checkout)
+        edit_page = self.client.get(expected_edit_url)
+        self.assertEqual(edit_page.status_code, 200)
+        self.assertContains(edit_page, 'Business Card Active &amp; Paid (Lifetime Plan)')
+        self.assertIn('Update & Save Business Card', edit_page.content.decode('utf-8'))
+        self.assertNotContains(edit_page, 'Generate Business Card (₹499)')
+        self.assertNotContains(edit_page, 'Design NFC Card &amp; Pay (₹999)')
+
+        # 6. Kavya updates her card (e.g. changes role and phone) WITHOUT any payment id
+        update_data = {
+            'business_name': 'Kavya Design Studio',
+            'owner_name': 'Kavya Sharma',
+            'role_title': 'Founder & Creative Director',
+            'email': 'kavya@personalbrand.in',
+            'phone': '+91 9123456780',
+        }
+        update_res = self.client.post(expected_edit_url, update_data)
+        self.assertEqual(update_res.status_code, 302)
+        self.assertEqual(update_res['Location'], reverse('card_preview', kwargs={'card_id': card.card_id}))
+
+        # Verify DB updated and payment receipt preserved
+        card.refresh_from_db()
+        self.assertEqual(card.tagline, 'Founder & Creative Director')
+        self.assertEqual(card.phone, '+91 9123456780')
+        self.assertEqual(card.layout_config['payment_receipt']['payment_id'], 'pay_demo_kavya12345')

@@ -3955,7 +3955,149 @@
         </div>
       </section>
 
-      <!-- Choose Package / Payment Options (₹499 Digital vs ₹999 Digital + NFC Card) -->
+      <!-- Choose Package / Payment Options -->
+      {% if enterprise_quota.is_enterprise %}
+      <div class="alert alert-info rounded-4 border-0 shadow-sm p-3 mb-3 d-flex align-items-center gap-3" style="background:#F0F9FF;border:1px solid #BAE6FD;">
+        <div style="width:42px;height:42px;border-radius:12px;background:#0284C7;color:#fff;display:grid;place-items:center;font-size:20px;flex-shrink:0;">
+          <i class="bi bi-buildings-fill"></i>
+        </div>
+        <div style="flex:1;">
+          <h5 style="margin:0 0 2px;font-size:15px;font-weight:700;color:#0C4A6E;">
+            Covered by {{ enterprise_quota.company_name|default:"Enterprise" }} Plan (Pre-paid · ₹0)
+          </h5>
+          <p style="margin:0;font-size:12.5px;color:#0369A1;">
+            {% if enterprise_quota.is_employee %}
+            Your corporate business card slot is 100% pre-paid by your company. Customize your details and generate your live card for free.
+            {% else %}
+            Enterprise account active. This card will be allocated to your {{ enterprise_quota.company_name }} card quota.
+            {% endif %}
+          </p>
+        </div>
+      </div>
+
+      <div class="submit-packages-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(290px, 1fr));gap:18px;margin-top:16px;">
+        <!-- Option 1: Digital Card (Free / Pre-paid) -->
+        <div class="pkg-card" style="background:#ffffff;border:2px solid #0284C7;border-radius:20px;padding:22px;box-shadow:0 6px 20px rgba(15,23,42,0.04);display:flex;flex-direction:column;justify-content:space-between;">
+          <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+              <span style="background:#E0F2FE;color:#0284C7;font-weight:700;font-size:11.5px;padding:3px 10px;border-radius:999px;">
+                <i class="bi bi-phone"></i> CORPORATE DIGITAL CARD
+              </span>
+              <span style="background:#DCFCE7;color:#166534;font-weight:700;font-size:11px;padding:2px 8px;border-radius:6px;">PRE-PAID (FREE)</span>
+            </div>
+            <h3 style="font-size:17px;font-weight:800;color:var(--ink);margin:0 0 6px;">Digital Business Card</h3>
+            <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:10px;">
+              <span style="font-size:26px;font-weight:800;color:#0284C7;">₹0</span>
+              <span style="font-size:12.5px;color:var(--mute);">/ covered by company</span>
+            </div>
+            <ul style="list-style:none;padding:0;margin:0 0 18px;display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:#475569;">
+              <li><i class="bi bi-check-circle-fill text-success me-1"></i> Interactive mobile viewport preview</li>
+              <li><i class="bi bi-check-circle-fill text-success me-1"></i> Instant live shareable link &amp; QR code</li>
+              <li><i class="bi bi-check-circle-fill text-success me-1"></i> Contact sync, WhatsApp, socials &amp; brochure</li>
+            </ul>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            {% if is_edit %}
+            <button class="pill light" type="submit" id="btnUpdateCardDirect" style="border-radius:999px;padding:11px 18px;font-weight:600;font-size:13.5px;">
+              <i class="bi bi-check2-circle me-1"></i> Update &amp; Save Business Card
+            </button>
+            {% endif %}
+            <button class="pill" type="button" id="btnGenerateCard" onclick="window.triggerRazorpayForDigital(event)" style="flex:1;background:#0F172A;color:#fff;font-weight:700;font-size:14px;padding:12px 18px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;border:0;">
+              <i class="bi bi-lightning-charge-fill" style="color:#38BDF8;"></i>
+              <span>Generate Business Card</span>
+            </button>
+          </div>
+        </div>
+
+        {% if enterprise_quota.has_nfc %}
+        <!-- Option 2: Digital Card + NFC Card (Only rendered when CEO took Business Card + NFC Card plan) -->
+        <div class="pkg-card" style="background:linear-gradient(145deg, #0F172A 0%, #1E293B 100%);border:2px solid #38BDF8;border-radius:20px;padding:22px;box-shadow:0 12px 30px rgba(15,23,42,0.18);display:flex;flex-direction:column;justify-content:space-between;color:#ffffff;position:relative;overflow:hidden;">
+          <div style="position:absolute;top:14px;right:-32px;background:#38BDF8;color:#0F172A;font-weight:800;font-size:9.5px;padding:4px 34px;transform:rotate(45deg);letter-spacing:0.06em;">
+            INCLUDED
+          </div>
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+              <span style="background:rgba(56,189,248,0.2);color:#38BDF8;border:1px solid rgba(56,189,248,0.3);font-weight:700;font-size:11.5px;padding:3px 10px;border-radius:999px;">
+                <i class="bi bi-broadcast"></i> DIGITAL + PHYSICAL NFC
+              </span>
+              <span style="background:rgba(16,185,129,0.25);color:#34D399;font-weight:700;font-size:11px;padding:2px 8px;border-radius:6px;">PRE-PAID (FREE)</span>
+            </div>
+            <h3 style="font-size:17px;font-weight:800;color:#ffffff;margin:0 0 6px;">Business Card + NFC Card</h3>
+            <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:10px;">
+              <span style="font-size:26px;font-weight:800;color:#38BDF8;">₹0</span>
+              <span style="font-size:12.5px;color:#94A3B8;">/ included in enterprise bundle</span>
+            </div>
+            <ul style="list-style:none;padding:0;margin:0 0 18px;display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:#CBD5E1;">
+              <li><i class="bi bi-check-circle-fill text-info me-1"></i> <b>Full Digital Card</b> (Live link, QR &amp; vCard)</li>
+              <li><i class="bi bi-check-circle-fill text-info me-1"></i> <b>Smart NFC Card</b> customized front &amp; back</li>
+              <li><i class="bi bi-check-circle-fill text-info me-1"></i> Choose from 4 luxury layouts &amp; live preview</li>
+            </ul>
+          </div>
+          <button class="pill" type="button" id="btnCustomizeNfcCard" onclick="window.openNfcStudioModal(event)" style="background:#38BDF8;color:#0F172A;font-weight:800;font-size:14px;padding:12px 20px;border-radius:999px;border:0;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;box-shadow:0 4px 16px rgba(56,189,248,0.35);">
+            <i class="bi bi-broadcast"></i>
+            <span>Generate NFC Card</span>
+            <i class="bi bi-arrow-right"></i>
+          </button>
+        </div>
+        {% endif %}
+      </div>
+      {% elif is_edit %}
+      <!-- EDIT MODE: Personal Card Already Paid & Active (No Payment Required) -->
+      <div class="alert alert-success rounded-4 border-0 shadow-sm p-3 mb-3 d-flex align-items-center gap-3" style="background:#F0FDF4;border:1px solid #BBF7D0;">
+        <div style="width:42px;height:42px;border-radius:12px;background:#16A34A;color:#fff;display:grid;place-items:center;font-size:20px;flex-shrink:0;">
+          <i class="bi bi-shield-fill-check"></i>
+        </div>
+        <div style="flex:1;">
+          <h5 style="margin:0 0 2px;font-size:15px;font-weight:700;color:#14532D;">
+            Business Card Active &amp; Paid (Lifetime Plan)
+          </h5>
+          <p style="margin:0;font-size:12.5px;color:#15803D;">
+            You have already paid for your card. Edit and update your details, contact info, branding, or theme anytime for free — no payment required.
+          </p>
+        </div>
+      </div>
+
+      <div class="submit-packages-grid" style="display:grid;grid-template-columns:1fr;gap:18px;margin-top:16px;">
+        <div class="pkg-card" style="background:#ffffff;border:2px solid #16A34A;border-radius:20px;padding:22px;box-shadow:0 6px 20px rgba(15,23,42,0.04);display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;">
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+              <span style="background:#DCFCE7;color:#166534;font-weight:700;font-size:11px;padding:3px 10px;border-radius:999px;">
+                <i class="bi bi-check-circle-fill"></i> ACTIVE &amp; PAID
+              </span>
+              <span style="background:#EFF6FF;color:#0084FF;font-weight:700;font-size:11px;padding:3px 10px;border-radius:999px;">
+                LIFETIME ACCESS
+              </span>
+              {% if card.layout_config.nfc_card and card.layout_config.nfc_card.ordered %}
+              <span style="background:#E0F2FE;color:#0284C7;font-weight:700;font-size:11px;padding:3px 10px;border-radius:999px;">
+                <i class="bi bi-broadcast"></i> NFC HARDWARE INCLUDED
+              </span>
+              {% endif %}
+            </div>
+            <h3 style="font-size:18px;font-weight:800;color:var(--ink);margin:0 0 4px;">Save &amp; Update Your Card Details</h3>
+            <p style="margin:0;font-size:13px;color:#64748B;">
+              Changes sync immediately to your live public link, QR code, and interactive mobile preview.
+            </p>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+            {% if card.card_id %}
+            <a href="{% url 'card_preview' card_id=card.card_id %}" class="pill light" style="border-radius:999px;padding:12px 20px;font-weight:600;font-size:14px;border:1px solid #CBD5E1;">
+              <i class="bi bi-eye me-1"></i> Preview Live Card
+            </a>
+            {% endif %}
+            {% if card.layout_config.nfc_card and card.layout_config.nfc_card.ordered %}
+            <button class="pill" type="button" id="btnCustomizeNfcCard" onclick="window.openNfcStudioModal(event)" style="background:#0F172A;color:#fff;font-weight:700;font-size:14px;padding:12px 20px;border-radius:999px;border:0;display:inline-flex;align-items:center;gap:8px;cursor:pointer;">
+              <i class="bi bi-palette-fill" style="color:#38BDF8;"></i>
+              <span>Customize NFC Card</span>
+            </button>
+            {% endif %}
+            <button class="pill" type="submit" id="btnUpdateCardDirect" style="background:#16A34A;color:#fff;font-weight:700;font-size:14px;padding:12px 24px;border-radius:999px;display:inline-flex;align-items:center;gap:8px;cursor:pointer;border:0;box-shadow:0 4px 14px rgba(22,163,74,0.3);">
+              <i class="bi bi-check2-circle" style="font-size:18px;"></i>
+              <span>Update & Save Business Card</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      {% else %}
       <div class="submit-packages-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(290px, 1fr));gap:18px;margin-top:24px;">
         <!-- Option 1: Digital Card (₹499) -->
         <div class="pkg-card" style="background:#ffffff;border:1px solid var(--line);border-radius:20px;padding:22px;box-shadow:0 6px 20px rgba(15,23,42,0.03);display:flex;flex-direction:column;justify-content:space-between;">
@@ -3978,11 +4120,6 @@
             </ul>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            {% if is_edit %}
-            <button class="pill light" type="submit" id="btnUpdateCardDirect" style="border-radius:999px;padding:11px 18px;font-weight:600;font-size:13.5px;">
-              <i class="bi bi-check2-circle me-1"></i> Update & Save Business Card
-            </button>
-            {% endif %}
             <button class="pill" type="button" id="btnGenerateCard" onclick="window.triggerRazorpayForDigital(event)" style="flex:1;background:#0F172A;color:#fff;font-weight:700;font-size:14px;padding:12px 18px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;border:0;">
               <i class="bi bi-lightning-charge-fill" style="color:#FFCE88;"></i>
               <span>Generate Business Card (₹499)</span>
@@ -4019,6 +4156,7 @@
           </button>
         </div>
       </div>
+      {% endif %}
     </form>
 
     <!-- Right Side: Live Phone Mockup Preview -->
@@ -7394,9 +7532,28 @@
         activeTab: 'front',
       };
 
-      // Trigger Razorpay for Digital Card Only (₹499)
+      window.isEnterprisePlan = {{ enterprise_quota.is_enterprise|yesno:"true,false" }};
+      window.hasNfcIncluded = {{ enterprise_quota.has_nfc|yesno:"true,false" }};
+      window.isEditMode = {{ is_edit|yesno:"true,false" }};
+      window.hasNfcOrderedAlready = {% if card.layout_config.nfc_card and card.layout_config.nfc_card.ordered %}true{% else %}false{% endif %};
+
+      // Trigger Razorpay for Digital Card Only (₹499) or Free generation for enterprise
       window.triggerRazorpayForDigital = function(e) {
         if ($('inputNfcOrdered')) $('inputNfcOrdered').value = 'false';
+        if (window.isEnterprisePlan) {
+          const bName = $('business_name');
+          if (bName && !bName.value.trim()) {
+            bName.setCustomValidity('Please provide your business name.');
+            bName.reportValidity();
+            bName.focus();
+            bName.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            return false;
+          }
+          if (bName) bName.setCustomValidity('');
+          window.__rzpPaymentVerified = true;
+          $('cardForm').submit();
+          return;
+        }
         window.currentCheckoutAmount = 499;
         window.currentCheckoutTitle = 'Personal Pro Digital Business Card';
         window.triggerRazorpayPaymentGateway(e);
@@ -7865,6 +8022,12 @@
       window.proceedFromNfcToPayment = function() {
         window.syncNfcHiddenInputs();
         window.closeNfcStudioModal();
+        if ((window.isEnterprisePlan && window.hasNfcIncluded) || (window.isEditMode && window.hasNfcOrderedAlready)) {
+          if ($('inputNfcOrdered')) $('inputNfcOrdered').value = 'true';
+          window.__rzpPaymentVerified = true;
+          $('cardForm').submit();
+          return;
+        }
         window.triggerRazorpayForNfcBundle();
       };
 
@@ -8025,7 +8188,11 @@
       $('cardForm')?.addEventListener('submit', function (e) {
         const submitter = e.submitter;
         const isDirectUpdate = submitter && submitter.id === 'btnUpdateCardDirect';
-        if (!window.__rzpPaymentVerified && !isDirectUpdate) {
+        if (window.isEnterprisePlan || window.isEditMode || isDirectUpdate) {
+          // Pre-paid or already paid lifetime plan - save directly with no payment!
+          return true;
+        }
+        if (!window.__rzpPaymentVerified) {
           e.preventDefault();
           window.triggerRazorpayPaymentGateway(e);
           return false;
@@ -8452,6 +8619,43 @@
 
           <!-- Order Summary Card -->
           <div class="nfc-order-summary">
+            {% if enterprise_quota.is_enterprise and enterprise_quota.has_nfc %}
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-size:12.5px;color:#64748B;">
+              <span>Corporate Digital Business Card</span>
+              <span style="font-weight:600;color:#10B981;">Pre-paid (₹0.00)</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:12.5px;color:#64748B;">
+              <span>Custom Smart Contactless NFC Card</span>
+              <span style="font-weight:600;color:#10B981;">Included in Bundle (₹0.00)</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid #E2E8F0;">
+              <div>
+                <strong style="color:#0F172A;font-size:14px;">Total Payable by You</strong>
+                <span style="display:block;color:#10B981;font-size:11.5px;font-weight:600;">✓ Covered by {{ enterprise_quota.company_name|default:"Company" }} · Express Delivery Included</span>
+              </div>
+              <div style="text-align:right;">
+                <span class="nfc-price-total" style="color:#10B981;">₹0.00</span>
+              </div>
+            </div>
+            {% elif is_edit and card.layout_config.nfc_card and card.layout_config.nfc_card.ordered %}
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-size:12.5px;color:#64748B;">
+              <span>Personal Digital Business Card</span>
+              <span style="font-weight:600;color:#10B981;">Paid (₹0.00)</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:12.5px;color:#64748B;">
+              <span>Custom Smart Contactless NFC Card</span>
+              <span style="font-weight:600;color:#10B981;">Already Paid &amp; Active (₹0.00)</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid #E2E8F0;">
+              <div>
+                <strong style="color:#0F172A;font-size:14px;">Total Payable by You</strong>
+                <span style="display:block;color:#10B981;font-size:11.5px;font-weight:600;">✓ Lifetime Access · Express Delivery Included</span>
+              </div>
+              <div style="text-align:right;">
+                <span class="nfc-price-total" style="color:#10B981;">₹0.00</span>
+              </div>
+            </div>
+            {% else %}
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-size:12.5px;color:#64748B;">
               <span>Digital Business Card</span>
               <span style="font-weight:600;color:#0F172A;">₹499.00</span>
@@ -8469,12 +8673,13 @@
                 <span class="nfc-price-total">₹999.00</span>
               </div>
             </div>
+            {% endif %}
           </div>
 
           <!-- Proceed Button -->
           <button type="button" class="btn-nfc-proceed-pay" onclick="window.proceedFromNfcToPayment()">
             <i class="bi bi-shield-lock-fill"></i>
-            <span>Proceed to Pay ₹999 via Razorpay</span>
+            <span>{% if enterprise_quota.is_enterprise and enterprise_quota.has_nfc %}Confirm &amp; Generate NFC Card (Free){% elif is_edit and card.layout_config.nfc_card and card.layout_config.nfc_card.ordered %}Save &amp; Update NFC Card (Free){% else %}Proceed to Pay ₹999 via Razorpay{% endif %}</span>
             <i class="bi bi-arrow-right"></i>
           </button>
         </div>
