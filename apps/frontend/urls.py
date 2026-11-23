@@ -47,6 +47,7 @@ urlpatterns = [
     path('dashboard/contacts/add/', views.dashboard_contacts_add, name='dashboard_contacts_add'),
     path('dashboard/messages/', views.dashboard_messages, name='dashboard_messages'),
     path('dashboard/nfc/', views.dashboard_nfc, name='dashboard_nfc'),
+    path('dashboard/nfc/status/<str:card_id>/', views.dashboard_nfc_status_update, name='dashboard_nfc_status_update'),
     path('dashboard/nfc/add/', views.dashboard_nfc_add, name='dashboard_nfc_add'),
     path('dashboard/nfc/update/<int:tag_id>/', views.dashboard_nfc_update, name='dashboard_nfc_update'),
     path('dashboard/nfc/toggle/<int:tag_id>/', views.dashboard_nfc_toggle_active, name='dashboard_nfc_toggle_active'),
@@ -83,5 +84,10 @@ urlpatterns = [
     path('enterprise-admin/leads/', views.enterprise_admin_leads, name='enterprise_admin_leads'),
     path('enterprise-admin/leads/export/', views.enterprise_admin_leads_export, name='enterprise_admin_leads_export'),
     path('enterprise-admin/billing/', views.enterprise_admin_billing, name='enterprise_admin_billing'),
+    path('enterprise-admin/plans/', views.enterprise_admin_plans, name='enterprise_admin_plans'),
+    path('enterprise-admin/plans/send-reminder/', views.enterprise_admin_send_reminder, name='enterprise_admin_send_reminder'),
+    path('enterprise-admin/nfc-orders/', views.enterprise_admin_nfc_orders, name='enterprise_admin_nfc_orders'),
+    path('enterprise-admin/nfc-orders/update/<str:card_id>/', views.enterprise_admin_nfc_status_update, name='enterprise_admin_nfc_status_update'),
+    path('enterprise-admin/nfc-orders/print/<str:card_id>/', views.enterprise_admin_nfc_print_sheet, name='enterprise_admin_nfc_print_sheet'),
 ]
 

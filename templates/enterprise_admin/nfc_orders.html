@@ -1,0 +1,363 @@
+{% extends "enterprise_admin/base_enterprise_admin.html" %}
+
+{% block title %}Physical NFC Card Orders & Printing{% endblock %}
+
+{% block enterprise_content %}
+<style>
+  /* 3D Flip Card Styles */
+  .nfc-preview-flip-wrap {
+    perspective: 1000px;
+  }
+  .nfc-flip-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    transform-style: preserve-3d;
+    cursor: pointer;
+  }
+  .nfc-flip-inner.is-flipped {
+    transform: rotateY(180deg) !important;
+  }
+  .nfc-card-face {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    border-radius: 12px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.35);
+  }
+  .nfc-card-front {
+    text-align: left;
+  }
+  .nfc-card-back {
+    transform: rotateY(180deg);
+    text-align: center;
+  }
+
+  /* Themes */
+  .nfc-flip-inner.theme-obsidian_black .nfc-card-face,
+  .nfc-flip-inner.theme-obsidian .nfc-card-face {
+    background: linear-gradient(135deg, #18191E 0%, #0A0B0D 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    color: #FFFFFF !important;
+  }
+  .nfc-flip-inner.theme-obsidian_black.foil-gold,
+  .nfc-flip-inner.theme-obsidian.foil-gold {
+    color: #F59E0B !important;
+  }
+  .nfc-flip-inner.theme-pearl_white .nfc-card-face,
+  .nfc-flip-inner.theme-pearl .nfc-card-face {
+    background: linear-gradient(135deg, #FFFFFF 0%, #F1F5F9 100%) !important;
+    border: 1px solid #CBD5E1 !important;
+    color: #0F172A !important;
+  }
+  .nfc-flip-inner.theme-titanium_blue .nfc-card-face,
+  .nfc-flip-inner.theme-titanium .nfc-card-face {
+    background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%) !important;
+    border: 1px solid #38BDF8 !important;
+    color: #FFFFFF !important;
+  }
+  .nfc-flip-inner.theme-royal_gold .nfc-card-face,
+  .nfc-flip-inner.theme-gold .nfc-card-face {
+    background: linear-gradient(135deg, #EAB308 0%, #CA8A04 50%, #854D0E 100%) !important;
+    border: 1px solid #FEF08A !important;
+    color: #1C1917 !important;
+  }
+  .nfc-flip-inner.foil-gold {
+    color: #D4AF37;
+  }
+  .nfc-flip-inner.foil-silver {
+    color: #E2E8F0;
+  }
+  .nfc-flip-inner.foil-rose {
+    color: #FB7185;
+  }
+</style>
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+  <div>
+    <div class="d-flex align-items-center gap-2 mb-1">
+      <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1 rounded-pill fw-bold" style="font-size:11px;">
+        <i class="bi bi-broadcast"></i> Hardware Fulfillment
+      </span>
+      <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1 rounded-pill fw-bold" style="font-size:11px;">
+        <i class="bi bi-printer-fill"></i> Production &amp; Laser Engraving
+      </span>
+    </div>
+    <h1 style="font-size:26px;font-weight:800;color:#0F172A;margin:0 0 4px;">Physical NFC Card Orders</h1>
+    <p style="font-size:13.5px;color:#64748B;margin:0;">
+      Inspect custom physical card designs submitted by clients, export high-res laser printing specifications, and update shipping &amp; delivery statuses.
+    </p>
+  </div>
+</div>
+
+<!-- 4 Key Status Metrics -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="metric-card p-3">
+      <div class="metric-header mb-1">
+        <span class="metric-title" style="font-size:12px;">Total NFC Orders</span>
+        <div class="metric-icon-wrap metric-icon-blue" style="width:32px;height:32px;font-size:14px;"><i class="bi bi-broadcast-pin"></i></div>
+      </div>
+      <div class="metric-value" style="font-size:22px;">{{ stats.total|default:0 }}</div>
+      <div class="metric-hint">All physical hardware orders</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="metric-card p-3">
+      <div class="metric-header mb-1">
+        <span class="metric-title" style="font-size:12px;">In Production / Printing</span>
+        <div class="metric-icon-wrap metric-icon-indigo" style="width:32px;height:32px;font-size:14px;"><i class="bi bi-gear-wide-connected"></i></div>
+      </div>
+      <div class="metric-value text-primary" style="font-size:22px;">{{ stats.in_production|default:0 }}</div>
+      <div class="metric-hint">Printing &amp; chip encoding</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="metric-card p-3">
+      <div class="metric-header mb-1">
+        <span class="metric-title" style="font-size:12px;">Ready for Dispatch</span>
+        <div class="metric-icon-wrap metric-icon-emerald" style="width:32px;height:32px;font-size:14px;"><i class="bi bi-box-seam-fill"></i></div>
+      </div>
+      <div class="metric-value text-success" style="font-size:22px;">{{ stats.ready_dispatch|default:0 }}</div>
+      <div class="metric-hint">Packed and ready for pickup</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="metric-card p-3">
+      <div class="metric-header mb-1">
+        <span class="metric-title" style="font-size:12px;">Shipped / In Transit</span>
+        <div class="metric-icon-wrap metric-icon-amber" style="width:32px;height:32px;font-size:14px;"><i class="bi bi-truck"></i></div>
+      </div>
+      <div class="metric-value text-warning" style="font-size:22px;">{{ stats.shipped|default:0 }}</div>
+      <div class="metric-hint">Dispatched with tracking</div>
+    </div>
+  </div>
+</div>
+
+<!-- Search and Status Filter Bar -->
+<div class="card border-0 shadow-sm p-3 mb-4 rounded-4" style="background:#FFFFFF;border:1px solid #E2E8F0 !important;">
+  <form method="get" class="row g-2 align-items-center">
+    <div class="col-md-6 col-lg-5">
+      <div class="input-group">
+        <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-search"></i></span>
+        <input type="text" name="q" class="form-control border-start-0" placeholder="Search by client name, business, Gmail, or card ID..." value="{{ search_q|default:'' }}">
+      </div>
+    </div>
+    <div class="col-md-4 col-lg-3">
+      <select name="status" class="form-select" onchange="this.form.submit()">
+        <option value="" {% if not status_filter %}selected{% endif %}>All Production Statuses</option>
+        {% for opt in status_options %}
+          <option value="{{ opt }}" {% if status_filter == opt %}selected{% endif %}>{{ opt }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-auto">
+      <button type="submit" class="btn btn-dark rounded-pill px-3">Filter</button>
+      {% if search_q or status_filter %}
+        <a href="{% url 'enterprise_admin_nfc_orders' %}" class="btn btn-outline-secondary rounded-pill px-3">Clear</a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+<!-- NFC Orders List -->
+<div class="d-flex flex-column gap-4">
+  {% for card in orders %}
+  <div class="card border-0 shadow-sm rounded-4 overflow-hidden" style="background:#FFFFFF;border:1px solid #E2E8F0 !important;">
+    <div class="card-header bg-light bg-opacity-50 border-bottom border-light-subtle p-3 px-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <span class="badge bg-dark text-white rounded-pill px-2.5 py-1 fw-bold" style="font-size:11px;">
+          <code>{{ card.card_id }}</code>
+        </span>
+        <strong style="color:#0F172A;font-size:15px;">{{ card.business_name }}</strong>
+        <span class="text-secondary small">&bull; Submitted {{ card.created_at|date:"d M Y, h:i A" }}</span>
+      </div>
+
+      <div class="d-flex align-items-center gap-2">
+        {% if card.current_status == 'Shipped' %}
+          <span class="badge bg-warning text-dark px-3 py-1.5 rounded-pill fw-bold" style="font-size:12px;">
+            <i class="bi bi-truck me-1"></i> Shipped
+          </span>
+        {% elif card.current_status == 'Delivered' %}
+          <span class="badge bg-success text-white px-3 py-1.5 rounded-pill fw-bold" style="font-size:12px;">
+            <i class="bi bi-check2-circle me-1"></i> Delivered
+          </span>
+        {% elif card.current_status == 'Printing & Engraving' or card.current_status == 'Printing' %}
+          <span class="badge bg-primary text-white px-3 py-1.5 rounded-pill fw-bold" style="font-size:12px;">
+            <i class="bi bi-gear-wide-connected me-1"></i> Printing &amp; Engraving
+          </span>
+        {% elif card.current_status == 'Order Placed' %}
+          <span class="badge bg-info text-white px-3 py-1.5 rounded-pill fw-bold" style="font-size:12px;">
+            <i class="bi bi-clock-history me-1"></i> Order Placed
+          </span>
+        {% else %}
+          <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-1.5 rounded-pill fw-bold" style="font-size:12px;">
+            <i class="bi bi-check-circle-fill me-1"></i> {{ card.current_status }}
+          </span>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card-body p-4">
+      <div class="row g-4 align-items-center">
+        <!-- Col 1: Client & Contact Info -->
+        <div class="col-lg-4">
+          <h6 class="text-uppercase text-secondary fw-bold mb-3" style="font-size:11px;letter-spacing:0.06em;">Client &amp; Contact Info</h6>
+          <div class="mb-2">
+            <span class="text-muted small d-block">Client / Cardholder:</span>
+            <strong style="font-size:14px;color:#0F172A;">{{ card.nfc_data.name|default:card.owner_name|default:card.business_name }}</strong>
+            <span class="text-secondary small d-block">{{ card.nfc_data.designation|default:card.tagline }}</span>
+          </div>
+
+          <div class="mb-2">
+            <span class="text-muted small d-block">Client Gmail / Email:</span>
+            <span class="text-primary fw-semibold small d-flex align-items-center gap-1">
+              <i class="bi bi-envelope-at-fill" style="font-size:11px;"></i>
+              <code>{{ card.email|default:card.user.email|default:"No email registered" }}</code>
+            </span>
+          </div>
+
+          <div class="mb-2">
+            <span class="text-muted small d-block">Phone:</span>
+            <strong class="small" style="color:#0F172A;">{{ card.phone|default:"No phone provided" }}</strong>
+          </div>
+
+          <div class="mb-3">
+            <span class="text-muted small d-block">Digital Business Card URL:</span>
+            <a href="{{ card.share_url_full }}" target="_blank" class="text-primary small fw-semibold text-truncate d-block" style="max-width:280px;">
+              <i class="bi bi-link-45deg me-1"></i>{{ card.share_url_full }}
+            </a>
+          </div>
+
+          <div class="d-flex gap-2">
+            <a href="{% url 'card_preview' card_id=card.card_id %}" target="_blank" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1.5" title="View Digital Card Preview">
+              <i class="bi bi-eye me-1"></i> Live Preview
+            </a>
+            <a href="{% url 'enterprise_admin_nfc_print_sheet' card_id=card.card_id %}" target="_blank" class="btn btn-sm btn-dark rounded-pill px-3 py-1.5 fw-bold" title="Open Laser Production Print Sheet">
+              <i class="bi bi-printer-fill me-1 text-warning"></i> Print Sheet &rarr;
+            </a>
+          </div>
+        </div>
+
+        <!-- Col 2: Interactive 3D NFC Card Preview (Front & Back) -->
+        <div class="col-lg-4 text-center">
+          <div class="d-flex align-items-center justify-content-between mb-2 px-1">
+            <h6 class="text-uppercase text-secondary fw-bold mb-0" style="font-size:11px;letter-spacing:0.06em;">Custom Card Artwork</h6>
+            <button type="button" class="btn btn-sm btn-light border rounded-pill px-2 py-0.5" style="font-size:11px;" onclick="document.getElementById('nfcFlip_{{ card.id }}').classList.toggle('is-flipped')">
+              <i class="bi bi-arrow-repeat me-1 text-primary"></i> Flip Card
+            </button>
+          </div>
+
+          <!-- 3D Card Display -->
+          <div class="d-flex justify-content-center">
+            <div class="nfc-preview-flip-wrap" style="width:100%;max-width:290px;aspect-ratio:1.586/1;perspective:1000px;">
+              <div id="nfcFlip_{{ card.id }}" class="nfc-flip-inner theme-{{ card.nfc_data.theme|default:'obsidian_black' }} foil-{{ card.nfc_data.foil|default:'gold' }}" style="position:relative;width:100%;height:100%;transition:transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);transform-style:preserve-3d;cursor:pointer;" onclick="this.classList.toggle('is-flipped')" title="Click to flip front & back">
+                <!-- Front Face -->
+                <div class="nfc-card-face nfc-card-front" style="position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:12px;padding:14px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 10px 24px rgba(0,0,0,0.35);text-align:left;">
+                  <div class="d-flex justify-content-between align-items-start">
+                    <div style="width:28px;height:22px;border-radius:3px;background:linear-gradient(135deg, #d4af37, #aa771c);border:1px solid rgba(255,255,255,0.4);position:relative;">
+                      <div style="position:absolute;inset:2px;border:1px dashed rgba(0,0,0,0.3);border-radius:2px;"></div>
+                    </div>
+                    <i class="bi bi-broadcast" style="font-size:15px;opacity:0.9;"></i>
+                  </div>
+                  <div>
+                    <div style="font-size:13px;font-weight:800;letter-spacing:0.02em;line-height:1.2;">
+                      {{ card.nfc_data.name|default:card.owner_name|default:card.business_name }}
+                    </div>
+                    <div style="font-size:8.5px;font-weight:700;letter-spacing:0.08em;opacity:0.85;text-transform:uppercase;">
+                      {{ card.nfc_data.designation|default:card.tagline|default:"Designation" }}
+                    </div>
+                  </div>
+                  <div class="d-flex justify-content-between align-items-center" style="font-size:7.5px;letter-spacing:0.06em;opacity:0.65;">
+                    <span>{{ card.nfc_data.pass_tagline|default:"BrandNest Smart Pass" }}</span>
+                    <span>{{ card.nfc_data.chip_spec|default:"NTAG216 · 888 BYTES" }}</span>
+                  </div>
+                </div>
+
+                <!-- Back Face -->
+                <div class="nfc-card-face nfc-card-back" style="position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:12px;padding:14px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 10px 24px rgba(0,0,0,0.35);transform:rotateY(180deg);text-align:center;">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <span style="font-size:7.5px;font-weight:700;letter-spacing:0.06em;opacity:0.65;">{{ card.nfc_data.back_tagline|default:"SMART CONTACTLESS TOUCHPOINT" }}</span>
+                    <i class="bi bi-wifi" style="font-size:13px;opacity:0.85;"></i>
+                  </div>
+                  <div class="my-auto py-1">
+                    {% if card.nfc_data.logo_data == 'none' %}
+                    {# Logo hidden #}
+                    {% elif card.nfc_data.logo_data %}
+                      <img src="{{ card.nfc_data.logo_data }}" alt="Logo" style="max-height:28px;max-width:90px;object-fit:contain;margin-bottom:2px;transform:scale({{ card.nfc_data.logo_scale|default:'1.0' }});">
+                    {% elif card.logo %}
+                      <img src="{{ card.logo.url }}" alt="Logo" style="max-height:28px;max-width:90px;object-fit:contain;margin-bottom:2px;transform:scale({{ card.nfc_data.logo_scale|default:'1.0' }});">
+                    {% else %}
+                      <div style="width:28px;height:28px;border-radius:8px;background:rgba(255,255,255,0.18);display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;margin-bottom:2px;">
+                        {{ card.business_name|slice:":1"|upper }}
+                      </div>
+                    {% endif %}
+                    <div style="font-size:11px;font-weight:800;letter-spacing:-0.02em;">{{ card.nfc_data.company_name|default:card.business_name }}</div>
+                    <div style="font-size:8px;opacity:0.75;">{{ card.nfc_data.tap_hint|default:"Tap against any smartphone to open card" }}</div>
+                  </div>
+                  <div class="d-flex justify-content-between align-items-center" style="font-size:7px;opacity:0.6;">
+                    <span>{{ card.nfc_data.website|default:card.share_url_full }}</span>
+                    <span>{{ card.nfc_data.back_badge|default:"Direct NFC Tap" }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-center gap-3 mt-2 text-muted small" style="font-size:11px;">
+            <span><i class="bi bi-palette-fill me-1 text-primary"></i>Finish: <strong class="text-dark text-capitalize">{{ card.nfc_data.theme|default:"Obsidian Black"|cut:"_" }}</strong></span>
+            <span><i class="bi bi-stars me-1 text-warning"></i>Foil: <strong class="text-dark text-capitalize">{{ card.nfc_data.foil|default:"Gold" }}</strong></span>
+          </div>
+        </div>
+
+        <!-- Col 3: Status Update Controls & Shipping Form -->
+        <div class="col-lg-4">
+          <div class="p-3 bg-light rounded-4 border">
+            <h6 class="fw-bold mb-2" style="font-size:13px;color:#0F172A;">
+              <i class="bi bi-truck text-primary me-1"></i> Update Order &amp; Fulfillment Status
+            </h6>
+            <p class="text-secondary small mb-3" style="font-size:12px;">
+              Updating status synchronizes immediately to the client's preview page and triggers an automated Gmail delivery update.
+            </p>
+
+            <form method="post" action="{% url 'enterprise_admin_nfc_status_update' card_id=card.card_id %}">
+              {% csrf_token %}
+              <div class="mb-2">
+                <label class="form-label small fw-semibold text-muted mb-1" style="font-size:11px;">Current Production / Dispatch Status:</label>
+                <select name="status" class="form-select form-select-sm" required>
+                  {% for opt in status_options %}
+                    <option value="{{ opt }}" {% if card.current_status == opt %}selected{% endif %}>{{ opt }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label small fw-semibold text-muted mb-1" style="font-size:11px;">Courier &amp; Tracking Details (Optional):</label>
+                <input type="text" name="tracking_info" class="form-control form-control-sm" placeholder="e.g. BlueDart AW987654321 / Handed over" value="{{ card.tracking_info }}">
+              </div>
+
+              <button type="submit" class="btn btn-sm btn-primary rounded-pill w-100 fw-bold py-1.5 d-inline-flex align-items-center justify-content-center gap-1">
+                <i class="bi bi-check2-circle"></i> Save Status &amp; Notify Client
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <div class="card border-0 shadow-sm p-5 text-center rounded-4" style="background:#FFFFFF;">
+    <i class="bi bi-broadcast d-block mb-3" style="font-size:42px;color:#CBD5E1;"></i>
+    <h5 style="color:#0F172A;font-weight:700;">No Physical NFC Card Orders Found</h5>
+    <p class="text-secondary small mb-0">No physical NFC orders match the selected filters. When clients pay for NFC hardware, their customized cards will automatically populate here for laser engraving and shipping.</p>
+  </div>
+  {% endfor %}
+</div>
+
+{% endblock %}
+

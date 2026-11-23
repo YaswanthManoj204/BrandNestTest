@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NFC Production Sheet - {{ card.business_name }} ({{ card.card_id }})</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  
+  <style>
+    body {
+      background-color: #F1F5F9;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      color: #0F172A;
+      margin: 0;
+      padding: 24px;
+    }
+    .sheet-container {
+      max-width: 920px;
+      margin: 0 auto;
+      background: #FFFFFF;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+      padding: 36px 42px;
+      border: 1px solid #E2E8F0;
+    }
+    .print-header {
+      border-bottom: 2px solid #0F172A;
+      padding-bottom: 18px;
+      margin-bottom: 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .spec-table th, .spec-table td {
+      padding: 8px 12px;
+      font-size: 13px;
+      border-bottom: 1px solid #E2E8F0;
+    }
+    .spec-table th {
+      background: #F8FAFC;
+      color: #64748B;
+      font-weight: 700;
+      width: 35%;
+    }
+    
+    /* Standard CR80 Card Dimensions (85.6mm x 53.98mm ~ ratio 1.586) */
+    .cr80-card-box {
+      width: 320px;
+      height: 202px;
+      border-radius: 12px;
+      position: relative;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+      border: 1px solid rgba(0,0,0,0.12);
+      overflow: hidden;
+    }
+
+    /* Card Themes */
+    .theme-obsidian_black { background: #0A0A0C; color: #FFFFFF; }
+    .theme-pearl_white { background: #F8FAFC; color: #0F172A; border: 1px solid #CBD5E1; }
+    .theme-matte_slate { background: #1E293B; color: #FFFFFF; }
+    .theme-brushed_gold { background: linear-gradient(135deg, #1C1917, #292524); color: #F59E0B; }
+    .theme-midnight_blue { background: #0F172A; color: #FFFFFF; }
+    .theme-rose_gold { background: linear-gradient(135deg, #271E20, #1F1719); color: #FB7185; }
+
+    .foil-gold { text-shadow: 0 0 1px rgba(245, 158, 11, 0.4); }
+    .foil-silver { text-shadow: 0 0 1px rgba(226, 232, 240, 0.4); }
+    .foil-white { text-shadow: none; }
+    .foil-cyan { text-shadow: 0 0 1px rgba(56, 189, 248, 0.4); }
+
+    .code-box {
+      font-family: 'JetBrains Mono', monospace;
+      background: #0F172A;
+      color: #38BDF8;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      word-break: break-all;
+    }
+
+    @media print {
+      body { background: #FFFFFF; padding: 0; }
+      .sheet-container { border: none; box-shadow: none; padding: 0; width: 100%; max-width: 100%; }
+      .no-print { display: none !important; }
+      .cr80-card-box { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Screen Topbar with Print Button -->
+  <div class="sheet-container mb-3 no-print p-3 d-flex align-items-center justify-content-between">
+    <a href="{% url 'enterprise_admin_nfc_orders' %}" class="btn btn-sm btn-outline-secondary rounded-pill px-3">
+      &larr; Back to NFC Orders
+    </a>
+    <div class="d-flex gap-2">
+      <button type="button" class="btn btn-sm btn-dark rounded-pill px-4 fw-bold" onclick="window.print()">
+        <i class="bi bi-printer-fill me-1 text-warning"></i> Print Production Ticket / Sheet (PDF)
+      </button>
+    </div>
+  </div>
+
+  <div class="sheet-container">
+    <!-- Header -->
+    <div class="print-header">
+      <div>
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <h2 style="font-size:22px;font-weight:800;margin:0;">BrandNest Hardware Fulfillment</h2>
+          <span class="badge bg-dark rounded-pill px-2.5 py-1" style="font-size:10.5px;">CR80 FORM FACTOR</span>
+        </div>
+        <p style="margin:0;font-size:13px;color:#64748B;">
+          Production Ticket for Laser Engraving &amp; NTAG216 Chip Programming
+        </p>
+      </div>
+
+      <div class="text-end">
+        <strong style="font-size:15px;color:#0F172A;display:block;">Ticket ID: {{ card.card_id }}</strong>
+        <span class="text-muted small">Generated {{ now|date:"d M Y, h:i A" }}</span>
+      </div>
+    </div>
+
+    <!-- Client & Order Summary -->
+    <div class="row g-4 mb-4">
+      <div class="col-md-6">
+        <h6 class="text-uppercase text-secondary fw-bold mb-2" style="font-size:11px;letter-spacing:0.06em;">Customer &amp; Shipping Handover</h6>
+        <table class="w-100 spec-table">
+          <tr>
+            <th>Client Name:</th>
+            <td><strong>{{ nfc.name|default:card.owner_name|default:card.business_name }}</strong></td>
+          </tr>
+          <tr>
+            <th>Company:</th>
+            <td>{{ card.business_name }}</td>
+          </tr>
+          <tr>
+            <th>Gmail / Email:</th>
+            <td><code>{{ card.email|default:card.user.email|default:"Not specified" }}</code></td>
+          </tr>
+          <tr>
+            <th>Contact Phone:</th>
+            <td><strong>{{ card.phone|default:"Not specified" }}</strong></td>
+          </tr>
+          <tr>
+            <th>Order Status:</th>
+            <td><strong class="text-success">{{ nfc.status|default:"Ready for Printing & Dispatch" }}</strong></td>
+          </tr>
+        </table>
+      </div>
+
+      <div class="col-md-6">
+        <h6 class="text-uppercase text-secondary fw-bold mb-2" style="font-size:11px;letter-spacing:0.06em;">Hardware Specifications</h6>
+        <table class="w-100 spec-table">
+          <tr>
+            <th>Physical Dimensions:</th>
+            <td>CR80 (85.60 mm &times; 53.98 mm &times; 0.84 mm)</td>
+          </tr>
+          <tr>
+            <th>Base Finish Theme:</th>
+            <td class="text-capitalize"><strong>{{ nfc.theme|default:"Obsidian Black"|cut:"_" }}</strong></td>
+          </tr>
+          <tr>
+            <th>Laser Foil Color:</th>
+            <td class="text-capitalize"><strong>{{ nfc.foil|default:"Gold" }}</strong></td>
+          </tr>
+          <tr>
+            <th>NFC Chip Protocol:</th>
+            <td>NTAG216 &bull; 888 Bytes &bull; ISO 14443-A</td>
+          </tr>
+          <tr>
+            <th>Delivery Method:</th>
+            <td>Doorstep Express Courier</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- Visual Artwork Side-by-Side (Front & Back) -->
+    <div class="mb-4">
+      <h6 class="text-uppercase text-secondary fw-bold mb-3" style="font-size:11px;letter-spacing:0.06em;">
+        Visual Laser Engraving Artwork (1:1 Aspect Ratio)
+      </h6>
+
+      <div class="d-flex flex-wrap justify-content-center gap-4 p-4 rounded-4" style="background:#F8FAFC;border:1px dashed #CBD5E1;">
+        <!-- Front Side Box -->
+        <div>
+          <div class="text-center small text-muted mb-1 fw-bold">FRONT SIDE (CHIP &amp; HOLDER)</div>
+          <div class="cr80-card-box theme-{{ nfc.theme|default:'obsidian_black' }} foil-{{ nfc.foil|default:'gold' }}">
+            <div class="d-flex justify-content-between align-items-start">
+              <div style="width:34px;height:26px;border-radius:4px;background:linear-gradient(135deg, #d4af37, #aa771c);border:1px solid rgba(255,255,255,0.4);position:relative;">
+                <div style="position:absolute;inset:2px;border:1px dashed rgba(0,0,0,0.3);border-radius:2px;"></div>
+              </div>
+              <i class="bi bi-broadcast" style="font-size:18px;opacity:0.9;"></i>
+            </div>
+            <div>
+              <div style="font-size:15px;font-weight:800;letter-spacing:0.02em;line-height:1.2;">
+                {{ nfc.name|default:card.owner_name|default:card.business_name }}
+              </div>
+              <div style="font-size:9.5px;font-weight:700;letter-spacing:0.08em;opacity:0.85;text-transform:uppercase;">
+                {{ nfc.designation|default:card.tagline|default:"Designation" }}
+              </div>
+            </div>
+            <div class="d-flex justify-content-between align-items-center" style="font-size:8.5px;letter-spacing:0.06em;opacity:0.65;">
+              <span>{{ nfc.pass_tagline|default:"BrandNest Smart Pass" }}</span>
+              <span>{{ nfc.chip_spec|default:"NTAG216 · 888 BYTES" }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Back Side Box -->
+        <div>
+          <div class="text-center small text-muted mb-1 fw-bold">BACK SIDE (LOGO &amp; LASER TOUCHPOINT)</div>
+          <div class="cr80-card-box theme-{{ nfc.theme|default:'obsidian_black' }} foil-{{ nfc.foil|default:'gold' }} text-center">
+            <div class="d-flex justify-content-between align-items-center">
+              <span style="font-size:8.5px;font-weight:700;letter-spacing:0.06em;opacity:0.65;">{{ nfc.back_tagline|default:"SMART CONTACTLESS TOUCHPOINT" }}</span>
+              <i class="bi bi-wifi" style="font-size:15px;opacity:0.85;"></i>
+            </div>
+            <div class="my-auto py-1">
+              {% if nfc.logo_data == 'none' %}
+              {# hidden #}
+              {% elif nfc.logo_data %}
+                <img src="{{ nfc.logo_data }}" alt="Logo" style="max-height:36px;max-width:110px;object-fit:contain;margin-bottom:4px;transform:scale({{ nfc.logo_scale|default:'1.0' }});">
+              {% elif card.logo %}
+                <img src="{{ card.logo.url }}" alt="Logo" style="max-height:36px;max-width:110px;object-fit:contain;margin-bottom:4px;transform:scale({{ nfc.logo_scale|default:'1.0' }});">
+              {% else %}
+                <div style="width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,0.18);display:inline-flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;margin-bottom:4px;">
+                  {{ card.business_name|slice:":1"|upper }}
+                </div>
+              {% endif %}
+              <div style="font-size:13px;font-weight:800;letter-spacing:-0.02em;">{{ nfc.company_name|default:card.business_name }}</div>
+              <div style="font-size:9.5px;opacity:0.75;margin-top:2px;">{{ nfc.tap_hint|default:"Tap against any smartphone to open card" }}</div>
+            </div>
+            <div class="d-flex justify-content-between align-items-center" style="font-size:8px;opacity:0.6;">
+              <span>{{ nfc.website|default:share_url }}</span>
+              <span>{{ nfc.back_badge|default:"Direct NFC Tap" }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chip Programming Block -->
+    <div class="p-3 rounded-4 mb-4" style="background:#F8FAFC;border:1px solid #E2E8F0;">
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+        <div style="flex:1;">
+          <h6 class="text-uppercase text-secondary fw-bold mb-1" style="font-size:11px;letter-spacing:0.06em;">
+            <i class="bi bi-cpu text-primary me-1"></i> NFC Chip URL to Program (NDEF Record)
+          </h6>
+          <p class="text-muted small mb-2">Write this exact URL record to the NTAG216 IC chip using any NFC desktop/mobile writer:</p>
+          <div class="code-box">{{ share_url }}</div>
+        </div>
+        {% if qr_data_uri %}
+        <div class="text-center p-2 bg-white rounded-3 border">
+          <img src="{{ qr_data_uri }}" alt="QR Code" style="width:84px;height:84px;display:block;">
+          <small class="text-muted d-block mt-1" style="font-size:10px;font-weight:700;">Live QR</small>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Workshop Sign-off Section -->
+    <div class="pt-3 border-top d-flex justify-content-between align-items-center text-muted small" style="font-size:11.5px;">
+      <span>Laser Operator: ____________________</span>
+      <span>Quality Tested (NFC Tap): [ &nbsp; ] Pass</span>
+      <span>Dispatch Packing: ____________________</span>
+    </div>
+  </div>
+
+</body>
+</html>
+

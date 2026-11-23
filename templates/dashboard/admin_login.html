@@ -197,6 +197,15 @@
       <h2 class="login-card-title">Sign in to Admin Dashboard</h2>
       <p class="login-card-subtitle">Enter your administrative credentials to continue.</p>
 
+      {% if request.user.is_authenticated and not request.user.is_staff and not request.user.is_superuser %}
+        <div class="alert alert-warning d-flex align-items-center gap-2 py-2.5 px-3 mb-3" style="border-radius:10px;font-size:13px;border:1px solid #FDE68A;background:#FEF3C7;color:#92400E;">
+          <i class="bi bi-shield-exclamation text-warning fs-5"></i>
+          <div>
+            You are currently signed in with client account <strong>{{ request.user.username }}</strong>. Sign in below with your Super Admin account to access the administrative dashboard.
+          </div>
+        </div>
+      {% endif %}
+
       {% if messages %}
         {% for message in messages %}
           <div class="alert alert-{% if message.tags == 'error' %}danger{% elif message.tags == 'success' %}success{% else %}info{% endif %} d-flex align-items-center gap-2 py-2 px-3 mb-3" style="border-radius:10px;font-size:13px;">

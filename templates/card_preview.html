@@ -235,8 +235,26 @@
                 </div>
                 <div class="mt-1 d-flex justify-content-between align-items-center" style="font-size:11.5px;">
                     <span class="text-white-50">Status:</span>
-                    <span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i> Ready for Dispatch</span>
+                    {% with nfc_status=card.layout_config.nfc_card.status|default:"Ready for Dispatch" %}
+                    {% if nfc_status == 'Shipped' %}
+                        <span class="text-warning fw-semibold"><i class="bi bi-truck me-1"></i> Shipped</span>
+                    {% elif nfc_status == 'Delivered' %}
+                        <span class="text-success fw-semibold"><i class="bi bi-check2-circle me-1"></i> Delivered</span>
+                    {% elif nfc_status == 'Printing & Engraving' or nfc_status == 'Printing' %}
+                        <span class="text-info fw-semibold"><i class="bi bi-gear-wide-connected me-1"></i> Printing &amp; Engraving</span>
+                    {% elif nfc_status == 'Order Placed' %}
+                        <span class="text-info fw-semibold"><i class="bi bi-clock-history me-1"></i> Order Placed</span>
+                    {% else %}
+                        <span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i> {{ nfc_status }}</span>
+                    {% endif %}
+                    {% endwith %}
                 </div>
+                {% if card.layout_config.nfc_card.tracking_info %}
+                <div class="mt-1 pt-1 border-top border-white border-opacity-10 d-flex justify-content-between align-items-center" style="font-size:11px;">
+                    <span class="text-white-50"><i class="bi bi-geo-alt me-1 text-warning"></i>Tracking:</span>
+                    <span class="text-info fw-semibold">{{ card.layout_config.nfc_card.tracking_info }}</span>
+                </div>
+                {% endif %}
             </div>
             {% endif %}
             </div>

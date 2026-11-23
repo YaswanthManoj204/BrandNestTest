@@ -263,7 +263,7 @@ a { color: inherit; text-decoration: none; }
               </div>
               <div class="bundle-price">
                 <div class="amount">₹{{ b.price }}</div>
-                <div class="per-card">₹{{ b.per_card }} / {% if b.has_nfc %}member{% else %}card{% endif %}</div>
+                <div class="per-card">₹{{ b.per_card }} / {% if b.has_nfc %}member{% else %}card{% endif %} (yr)</div>
               </div>
             </div>
             {% endfor %}
@@ -273,7 +273,7 @@ a { color: inherit; text-decoration: none; }
         <!-- Right: Order Summary & Simulated Payment -->
         <div class="panel">
           <div class="panel-title">2. Order Summary &amp; Checkout</div>
-          <div class="panel-sub">Instant activation for your Enterprise Card Workspace</div>
+          <div class="panel-sub">Instant activation for your Enterprise Card Workspace (Yearly)</div>
 
           {% if company_name %}
           <div class="summary-row">
@@ -281,6 +281,10 @@ a { color: inherit; text-decoration: none; }
             <strong>{{ company_name }}</strong>
           </div>
           {% endif %}
+          <div class="summary-row">
+            <span>Billing Cycle</span>
+            <strong class="text-success"><i class="bi bi-arrow-repeat me-1"></i>Yearly Renewable</strong>
+          </div>
           <div class="summary-row">
             <span>Selected Plan</span>
             <strong id="summaryPlanName">Enterprise ({{ selected_name|default:"5 Business Cards" }})</strong>

@@ -907,6 +907,8 @@ class FrontendFlowTests(TestCase):
         self.assertTrue(CardAnalyticsEvent.objects.filter(card=card, event_type='share_click').exists())
 
         # 4. Test Dashboard Overview
+        self.test_user.is_staff = True
+        self.test_user.save()
         overview_res = self.client.get(reverse('dashboard_overview'))
         self.assertEqual(overview_res.status_code, 200)
         self.assertContains(overview_res, 'Medowa Ventures')
@@ -1499,7 +1501,7 @@ class FrontendFlowTests(TestCase):
         # 5. Open edit page -> verify edit UI (Active & Paid, no ₹499/₹999 checkout)
         edit_page = self.client.get(expected_edit_url)
         self.assertEqual(edit_page.status_code, 200)
-        self.assertContains(edit_page, 'Business Card Active &amp; Paid (Lifetime Plan)')
+        self.assertContains(edit_page, 'Business Card Active &amp; Paid (Yearly Plan)')
         self.assertIn('Update & Save Business Card', edit_page.content.decode('utf-8'))
         self.assertNotContains(edit_page, 'Generate Business Card (₹499)')
         self.assertNotContains(edit_page, 'Design NFC Card &amp; Pay (₹999)')
@@ -1521,3 +1523,413 @@ class FrontendFlowTests(TestCase):
         self.assertEqual(card.tagline, 'Founder & Creative Director')
         self.assertEqual(card.phone, '+91 9123456780')
         self.assertEqual(card.layout_config['payment_receipt']['payment_id'], 'pay_demo_kavya12345')
+
+    def test_yearly_plan_expiration_tracking_and_email_notification(self):
+        """
+        Verify that Personal and Enterprise plans are recorded as yearly renewable plans
+        with a 365-day expiration cycle, and automated reminder emails are dispatched
+        to the user's/CEO's Gmail address.
+        """
+        from datetime import timedelta
+        from django.utils import timezone
+        from django.core import mail
+        from django.core.management import call_command
+        from apps.cards.notifications import send_plan_expiration_email
+
+        # 1. Personal user signup with Gmail
+        rajesh = User.objects.create_user(
+            username='rajesh_tech',
+            email='rajesh.brand@gmail.com',
+            password='PasswordRajesh123!',
+            first_name='Rajesh',
+            last_name='Kumar'
+        )
+        self.client.force_login(rajesh)
+
+        # 2. Rajesh creates a card and pays for yearly Personal Pro + NFC
+        post_data = {
+            'business_name': 'Rajesh Tech Innovations',
+            'owner_name': 'Rajesh Kumar',
+            'role_title': 'Chief Architect',
+            'email': 'rajesh.brand@gmail.com',
+            'phone': '+91 9876543210',
+            'razorpay_payment_id': 'pay_demo_rajesh_yearly',
+            'razorpay_amount': '999',
+            'nfc_ordered': 'true',
+        }
+        res = self.client.post(reverse('card_builder'), post_data)
+        self.assertEqual(res.status_code, 302)
+
+        card = BusinessCard.objects.filter(user=rajesh).first()
+        self.assertIsNotNone(card)
+        receipt = card.layout_config.get('payment_receipt', {})
+        self.assertEqual(receipt.get('billing_cycle'), 'yearly')
+        self.assertIn('Yearly', receipt.get('plan', ''))
+
+        # Check UserPlan
+        plan = UserPlan.objects.get(user=rajesh)
+        self.assertEqual(plan.plan_type, 'personal')
+        self.assertEqual(plan.billing_cycle, 'yearly')
+        self.assertIsNotNone(plan.effective_expires_at)
+        self.assertGreaterEqual(plan.days_remaining, 360)
+        self.assertEqual(plan.status_label, 'Active')
+
+        # 3. Simulate plan expiring in 10 days
+        plan.expires_at = timezone.now() + timedelta(days=10)
+        plan.save()
+        self.assertEqual(plan.status_label, 'Expiring Soon')
+        self.assertLessEqual(plan.days_remaining, 10)
+
+        # 4. Trigger notification helper directly
+        mail.outbox.clear()
+        res_email = send_plan_expiration_email(
+            recipient_email=plan.user.email,
+            recipient_name=plan.user.get_full_name(),
+            plan_name=plan.plan_name,
+            expires_at=plan.effective_expires_at,
+            days_left=plan.days_remaining,
+            is_enterprise=False
+        )
+        self.assertTrue(res_email.get('success'))
+        self.assertEqual(len(mail.outbox), 1)
+        sent_msg = mail.outbox[0]
+        self.assertEqual(sent_msg.to, ['rajesh.brand@gmail.com'])
+        self.assertIn('Expires Soon', sent_msg.subject)
+        self.assertIn('Rajesh', sent_msg.body)
+        self.assertIn('scheduled to expire', sent_msg.body)
+        self.assertIn('Personal Pro + Physical NFC Card', sent_msg.body)
+
+        # 5. Run management command notify_expiring_plans
+        mail.outbox.clear()
+        plan.last_notification_sent_at = None
+        plan.save()
+        call_command('notify_expiring_plans', days=30)
+        self.assertGreaterEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ['rajesh.brand@gmail.com'])
+
+    def test_super_admin_dashboard_personal_and_enterprise_plan_views(self):
+        """
+        Verify that Super Admin can view Personal Plans and Enterprise Plans with details,
+        view expiration countdowns, and manually send reminder notices to Gmail.
+        """
+        from datetime import timedelta
+        from django.utils import timezone
+        from django.core import mail
+        from apps.cards.models import EnterpriseCompany
+
+        # 1. Create Super Admin User
+        admin_user = User.objects.create_user(
+            username='super_admin_boss',
+            email='admin@brandnest.io',
+            password='SuperAdminPass123!',
+            is_staff=True
+        )
+        self.client.force_login(admin_user)
+
+        # 2. Create Personal User with paid yearly plan
+        priya = User.objects.create_user(
+            username='priya_designs',
+            email='priya.designs@gmail.com',
+            password='PriyaPassword123!',
+            first_name='Priya',
+            last_name='Nair'
+        )
+        priya_plan = UserPlan.objects.create(
+            user=priya,
+            plan_type='personal',
+            plan_name='Personal Pro Digital (Yearly)',
+            billing_cycle='yearly',
+            total_paid=499,
+            expires_at=timezone.now() + timedelta(days=200)
+        )
+        BusinessCard.objects.create(
+            user=priya,
+            business_name='Priya Creative Studio',
+            owner_name='Priya Nair',
+            email='priya.designs@gmail.com'
+        )
+
+        # 3. Create Enterprise Company + CEO with 10 cards yearly bundle
+        vikram_ceo = User.objects.create_user(
+            username='vikram_ceo',
+            email='vikram.ceo@gmail.com',
+            password='VikramCeoPass123!',
+            first_name='Vikram',
+            last_name='Singhania'
+        )
+        vikram_plan = UserPlan.objects.create(
+            user=vikram_ceo,
+            plan_type='enterprise',
+            is_ceo=True,
+            company_name='Singhania Global Tech',
+            company_head_name='Vikram Singhania',
+            company_email='vikram.ceo@gmail.com',
+            plan_name='10 Business Cards (Yearly)',
+            card_limit=10,
+            billing_cycle='yearly',
+            total_paid=1799,
+            expires_at=timezone.now() + timedelta(days=15) # Expiring soon
+        )
+        EnterpriseCompany.objects.create(
+            name='Singhania Global Tech',
+            head_name='Vikram Singhania',
+            email='vikram.ceo@gmail.com',
+            plan_tier='10 Business Cards (Yearly)',
+            card_quota=10,
+            total_paid=1799,
+            billing_cycle='yearly',
+            expires_at=vikram_plan.expires_at
+        )
+
+        # 4. Super Admin visits Personal Plans view
+        res_personal = self.client.get(reverse('enterprise_admin_plans'), {'view': 'personal'})
+        self.assertEqual(res_personal.status_code, 200)
+        self.assertContains(res_personal, 'Personal Plan Subscribers (Yearly Renewable)')
+        self.assertContains(res_personal, 'priya.designs@gmail.com')
+        self.assertContains(res_personal, 'Priya Creative Studio')
+        self.assertContains(res_personal, 'Personal Pro Digital (Yearly)')
+        self.assertContains(res_personal, 'Send Notice')
+
+        # 5. Super Admin visits Enterprise Plans view
+        res_ent = self.client.get(reverse('enterprise_admin_plans'), {'view': 'enterprise'})
+        self.assertEqual(res_ent.status_code, 200)
+        self.assertContains(res_ent, 'Enterprise Corporate Accounts &amp; CEOs')
+        self.assertContains(res_ent, 'Singhania Global Tech')
+        self.assertContains(res_ent, 'vikram.ceo@gmail.com')
+        self.assertContains(res_ent, '10 Business Cards (Yearly)')
+        self.assertContains(res_ent, 'Notice to CEO')
+
+        # 6. Super Admin clicks Send Notice to CEO Gmail
+        mail.outbox.clear()
+        post_reminder = self.client.post(reverse('enterprise_admin_send_reminder'), {
+            'plan_id': vikram_plan.id,
+            'view_type': 'enterprise'
+        })
+        self.assertEqual(post_reminder.status_code, 302)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ['vikram.ceo@gmail.com'])
+        self.assertIn('Singhania', mail.outbox[0].body)
+        self.assertIn('Expires Soon', mail.outbox[0].subject)
+
+        # Verify last_notification_sent_at updated in DB
+        vikram_plan.refresh_from_db()
+        self.assertIsNotNone(vikram_plan.last_notification_sent_at)
+
+    def test_nfc_card_order_admin_notification_printing_and_status_tracking(self):
+        """
+        Verify:
+        1. When a user creates/pays for an NFC card, the Super Admin receives an email notification with design and link.
+        2. Super admin console /enterprise-admin/nfc-orders/ lists the card with design details.
+        3. Super admin updates status to 'Shipped' with tracking info, client receives email notification.
+        4. Client's card_preview page shows updated status 'Shipped' and tracking info.
+        5. Print sheet /enterprise-admin/nfc-orders/print/<card_id>/ renders production sheet.
+        """
+        from django.core import mail
+
+        # 1. User orders Personal Pro + NFC card
+        user = User.objects.create_user(
+            username='arjun_nfc',
+            email='arjun.innovations@gmail.com',
+            password='ArjunPassword123!',
+            first_name='Arjun',
+            last_name='Reddy'
+        )
+        self.client.force_login(user)
+
+        mail.outbox.clear()
+        card_data = {
+            'business_name': 'Arjun Robotics Labs',
+            'owner_name': 'Arjun Reddy',
+            'role_title': 'Director of Robotics',
+            'email': 'arjun.innovations@gmail.com',
+            'phone': '+91 9988776655',
+            'website': 'https://arjunrobotics.in',
+            'razorpay_payment_id': 'pay_demo_arjun_nfc',
+            'razorpay_amount': '999',
+            'nfc_ordered': 'true',
+            'nfc_theme': 'obsidian_black',
+            'nfc_foil': 'gold',
+            'nfc_name': 'Arjun Reddy',
+            'nfc_designation': 'Director of Robotics',
+            'nfc_company_name': 'Arjun Robotics Labs',
+            'nfc_website': 'www.arjunrobotics.in',
+        }
+        res = self.client.post(reverse('card_builder'), card_data)
+        self.assertEqual(res.status_code, 302)
+
+        card = BusinessCard.objects.filter(user=user).first()
+        self.assertIsNotNone(card)
+
+        # Verify Super Admin received email notification with design and link
+        self.assertGreaterEqual(len(mail.outbox), 1)
+        admin_email = mail.outbox[0]
+        self.assertIn('Physical NFC Card Order', admin_email.subject)
+        self.assertIn('Arjun Robotics Labs', admin_email.subject)
+        self.assertIn('Obsidian Black', admin_email.body)
+        self.assertIn('Gold', admin_email.body)
+        self.assertIn(card.share_url, admin_email.body)
+
+        # 2. Super Admin logs in
+        admin_user = User.objects.create_user(
+            username='nfc_super_admin',
+            email='admin@brandnest.io',
+            password='AdminPassword123!',
+            is_staff=True
+        )
+        self.client.force_login(admin_user)
+
+        # 3. Super Admin views Personal NFC orders console (/dashboard/nfc/)
+        personal_orders_page = self.client.get(reverse('dashboard_nfc'))
+        self.assertEqual(personal_orders_page.status_code, 200)
+        self.assertContains(personal_orders_page, 'Arjun Robotics Labs')
+        self.assertContains(personal_orders_page, 'Arjun Reddy')
+        self.assertContains(personal_orders_page, 'arjun.innovations@gmail.com')
+        self.assertContains(personal_orders_page, 'Print Sheet')
+
+        # Personal order must NOT show in Enterprise NFC orders console
+        ent_orders_page = self.client.get(reverse('enterprise_admin_nfc_orders'))
+        self.assertEqual(ent_orders_page.status_code, 200)
+        self.assertNotIn(card, ent_orders_page.context['orders'])
+
+        # 4. Super Admin updates status to 'Shipped' with tracking details from Personal Dashboard
+        mail.outbox.clear()
+        update_res = self.client.post(
+            reverse('dashboard_nfc_status_update', kwargs={'card_id': card.card_id}),
+            {
+                'status': 'Shipped',
+                'tracking_info': 'BlueDart AW77889900'
+            }
+        )
+        self.assertEqual(update_res.status_code, 302)
+
+        card.refresh_from_db()
+        self.assertEqual(card.layout_config['nfc_card']['status'], 'Shipped')
+        self.assertEqual(card.layout_config['nfc_card']['tracking_info'], 'BlueDart AW77889900')
+
+        # Verify client received email update about Shipped status
+        self.assertEqual(len(mail.outbox), 1)
+        client_email = mail.outbox[0]
+        self.assertEqual(client_email.to, ['arjun.innovations@gmail.com'])
+        self.assertIn('Shipped', client_email.subject)
+        self.assertIn('BlueDart AW77889900', client_email.body)
+
+        # 5. Client views preview page (as seen in Screenshot 2) -> shows 'Shipped' status
+        self.client.force_login(user)
+        preview_page = self.client.get(reverse('card_preview', kwargs={'card_id': card.card_id}))
+        self.assertEqual(preview_page.status_code, 200)
+        self.assertContains(preview_page, 'Shipped')
+        self.assertContains(preview_page, 'BlueDart AW77889900')
+
+        # 6. Super Admin opens print specification sheet
+        self.client.force_login(admin_user)
+        print_sheet = self.client.get(reverse('enterprise_admin_nfc_print_sheet', kwargs={'card_id': card.card_id}))
+        self.assertEqual(print_sheet.status_code, 200)
+        self.assertContains(print_sheet, 'Production Ticket for Laser Engraving')
+        self.assertContains(print_sheet, 'CR80 FORM FACTOR')
+        self.assertContains(print_sheet, 'Arjun Robotics Labs')
+
+    def test_personal_vs_enterprise_nfc_orders_separation(self):
+        """
+        Verify:
+        - Personal user card with NFC reflects in Personal Super Admin Dashboard (/dashboard/nfc/).
+        - Enterprise CEO card / team cards with NFC reflect in Enterprise Super Admin Dashboard (/enterprise-admin/nfc-orders/).
+        - Cross-filtering strictly separates personal from enterprise orders.
+        """
+        from apps.cards.models import EnterpriseCompany
+
+        # 1. Super admin user
+        admin = User.objects.create_superuser('super_director', 'director@brandnest.io', 'DirectorPass123!')
+        self.client.force_login(admin)
+
+        # 2. Personal user with NFC card
+        p_user = User.objects.create_user('priya_personal', 'priya.k@gmail.com', 'PriyaPass123!')
+        p_card = BusinessCard.objects.create(
+            user=p_user,
+            business_name='Priya Studio',
+            owner_name='Priya Kumar',
+            email='priya.k@gmail.com',
+            layout_config={
+                'payment_receipt': {'amount': 999, 'plan': 'Personal Pro + Physical NFC Card (Yearly)'},
+                'nfc_card': {'ordered': True, 'name': 'Priya Kumar', 'status': 'Ready for Dispatch'}
+            }
+        )
+
+        # 3. Enterprise company & CEO with NFC card
+        e_company = EnterpriseCompany.objects.create(name='Nexus Health Tech', website='https://nexushealth.com')
+        e_user = User.objects.create_user('raj_ceo', 'raj.ceo@nexushealth.com', 'RajCeoPass123!')
+        e_plan = UserPlan.objects.create(
+            user=e_user,
+            plan_type='enterprise',
+            is_ceo=True,
+            card_limit=10,
+            nfc_card_limit=10,
+            company_name='Nexus Health Tech'
+        )
+        e_card = BusinessCard.objects.create(
+            user=e_user,
+            enterprise_company=e_company,
+            business_name='Nexus Health Tech',
+            owner_name='Rajesh Varma',
+            email='raj.ceo@nexushealth.com',
+            layout_config={
+                'payment_receipt': {'amount': 4499, 'plan': 'Growth Pro + 10 Smart NFC Cards'},
+                'nfc_card': {'ordered': True, 'name': 'Rajesh Varma', 'status': 'Printing & Engraving'}
+            }
+        )
+
+        # Check Personal Super Admin Dashboard (/dashboard/nfc/)
+        res_personal = self.client.get(reverse('dashboard_nfc'))
+        self.assertEqual(res_personal.status_code, 200)
+        self.assertContains(res_personal, 'Priya Studio')
+        self.assertContains(res_personal, 'Priya Kumar')
+        self.assertNotContains(res_personal, 'Nexus Health Tech')
+
+        # Check Enterprise Super Admin Dashboard (/enterprise-admin/nfc-orders/)
+        res_enterprise = self.client.get(reverse('enterprise_admin_nfc_orders'))
+        self.assertEqual(res_enterprise.status_code, 200)
+        self.assertContains(res_enterprise, 'Nexus Health Tech')
+        self.assertContains(res_enterprise, 'Rajesh Varma')
+        self.assertNotContains(res_enterprise, 'Priya Studio')
+
+    def test_regular_user_cannot_access_admin_or_dashboard(self):
+        """
+        Verify:
+        1. A regular client who signs up / pays cannot access /admin or /dashboard/.
+        2. Visiting /admin or /dashboard/ redirects to /admin/login/ with an admin warning.
+        3. Attempting to log into /admin/login/ with non-staff credentials is rejected with Access Denied.
+        4. Logging into /admin/login/ with superuser credentials succeeds and grants access.
+        """
+        regular_user = User.objects.create_user(
+            username='client_sarah',
+            email='sarah@mybrand.com',
+            password='SarahPassword123!'
+        )
+        self.client.force_login(regular_user)
+
+        # 1. Regular user visits /admin -> must redirect to /admin/login/
+        admin_res = self.client.get('/admin', follow=False)
+        self.assertEqual(admin_res.status_code, 302)
+        self.assertEqual(admin_res.url, reverse('admin_login'))
+
+        # 2. Regular user visits /dashboard/overview/ -> must redirect to /admin/login/?next=/dashboard/overview/
+        dash_res = self.client.get(reverse('dashboard_overview'), follow=True)
+        self.assertEqual(dash_res.status_code, 200)
+        self.assertContains(dash_res, 'Administrator privileges required')
+        self.assertContains(dash_res, 'client_sarah')
+
+        # 3. Regular user attempts to log into admin portal with regular credentials -> Access Denied
+        login_res = self.client.post(reverse('admin_login'), {
+            'username': 'client_sarah',
+            'password': 'SarahPassword123!'
+        })
+        self.assertEqual(login_res.status_code, 200)
+        self.assertContains(login_res, 'Access denied')
+
+        # 4. Super admin logs in -> success
+        admin_user = User.objects.create_superuser('boss_admin', 'boss@brandnest.io', 'BossPass123!')
+        login_admin = self.client.post(reverse('admin_login'), {
+            'username': 'boss_admin',
+            'password': 'BossPass123!'
+        })
+        self.assertEqual(login_admin.status_code, 302)
+        self.assertEqual(login_admin.url, reverse('dashboard_overview'))

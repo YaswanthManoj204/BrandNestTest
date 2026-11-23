@@ -382,3 +382,12 @@ JAZZMIN_UI_TWEAKS = {
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/dashboard/overview/'
 LOGOUT_REDIRECT_URL = '/login/'
+
+# Email Configuration (for Yearly Plan Expiration & Renewal Notifications)
+EMAIL_BACKEND = os.environ.get('DJANGO_EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'BrandNest Subscriptions <renewals@brandnest.in>')
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() in ('true', '1')
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')

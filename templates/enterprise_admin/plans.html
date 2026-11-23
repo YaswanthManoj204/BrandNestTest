@@ -1,0 +1,362 @@
+{% extends "enterprise_admin/base_enterprise_admin.html" %}
+
+{% block title %}Yearly Plans & Expiration Tracker{% endblock %}
+
+{% block enterprise_content %}
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+  <div>
+    <div class="d-flex align-items-center gap-2 mb-1">
+      <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1 rounded-pill fw-bold" style="font-size:11px;">
+        <i class="bi bi-shield-check"></i> Super Admin Central
+      </span>
+      <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1 rounded-pill fw-bold" style="font-size:11px;">
+        <i class="bi bi-arrow-repeat"></i> Yearly Renewable System
+      </span>
+    </div>
+    <h1 style="font-size:26px;font-weight:800;color:#0F172A;margin:0 0 4px;">Subscription Plans & Expiration Tracker</h1>
+    <p style="font-size:13.5px;color:#64748B;margin:0;">
+      Inspect yearly subscription cycles, track upcoming expirations, and send automated renewal reminders directly to users' and CEOs' Gmail accounts.
+    </p>
+  </div>
+</div>
+
+<!-- Super Admin Two-Option View Switcher (Personal vs Enterprise) -->
+<div class="card border-0 shadow-sm p-3 mb-4 rounded-4" style="background:#FFFFFF;border:1px solid #E2E8F0 !important;">
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+    <div class="d-flex align-items-center gap-2">
+      <a href="{% url 'enterprise_admin_plans' %}?view=personal" class="btn px-4 py-2.5 rounded-pill fw-bold d-inline-flex align-items-center gap-2 transition-all {% if view_type == 'personal' %}btn-primary shadow-sm{% else %}btn-light text-dark border{% endif %}" id="tabBtnPersonalPlans">
+        <i class="bi bi-person-badge-fill" style="font-size:16px;"></i>
+        <span>Personal Plans</span>
+        <span class="badge {% if view_type == 'personal' %}bg-white text-primary{% else %}bg-secondary text-white{% endif %} rounded-pill px-2 py-0.5" style="font-size:11px;">
+          {{ personal_stats.total }}
+        </span>
+      </a>
+
+      <a href="{% url 'enterprise_admin_plans' %}?view=enterprise" class="btn px-4 py-2.5 rounded-pill fw-bold d-inline-flex align-items-center gap-2 transition-all {% if view_type == 'enterprise' %}btn-dark shadow-sm{% else %}btn-light text-dark border{% endif %}" id="tabBtnEnterprisePlans">
+        <i class="bi bi-buildings-fill text-warning" style="font-size:16px;"></i>
+        <span>Enterprise Plans</span>
+        <span class="badge {% if view_type == 'enterprise' %}bg-warning text-dark{% else %}bg-secondary text-white{% endif %} rounded-pill px-2 py-0.5" style="font-size:11px;">
+          {{ enterprise_stats.total }}
+        </span>
+      </a>
+    </div>
+
+    <!-- Quick Expiration Summary Metrics -->
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+      {% if view_type == 'personal' %}
+        <div class="px-3 py-1.5 rounded-3 bg-light border text-center">
+          <small class="text-muted d-block" style="font-size:11px;font-weight:600;">ACTIVE</small>
+          <strong class="text-success" style="font-size:15px;">{{ personal_stats.active }}</strong>
+        </div>
+        <div class="px-3 py-1.5 rounded-3 bg-warning-subtle border border-warning-subtle text-center">
+          <small class="text-warning-emphasis d-block" style="font-size:11px;font-weight:700;">EXPIRING SOON (&le;30d)</small>
+          <strong class="text-warning-emphasis" style="font-size:15px;">{{ personal_stats.expiring_soon }}</strong>
+        </div>
+        <div class="px-3 py-1.5 rounded-3 bg-danger-subtle border border-danger-subtle text-center">
+          <small class="text-danger d-block" style="font-size:11px;font-weight:600;">EXPIRED</small>
+          <strong class="text-danger" style="font-size:15px;">{{ personal_stats.expired }}</strong>
+        </div>
+        <div class="px-3 py-1.5 rounded-3 bg-primary-subtle border border-primary-subtle text-center">
+          <small class="text-primary d-block" style="font-size:11px;font-weight:600;">COLLECTED (INR)</small>
+          <strong class="text-primary" style="font-size:15px;">₹{{ personal_stats.revenue }}</strong>
+        </div>
+      {% else %}
+        <div class="px-3 py-1.5 rounded-3 bg-light border text-center">
+          <small class="text-muted d-block" style="font-size:11px;font-weight:600;">ACTIVE</small>
+          <strong class="text-success" style="font-size:15px;">{{ enterprise_stats.active }}</strong>
+        </div>
+        <div class="px-3 py-1.5 rounded-3 bg-warning-subtle border border-warning-subtle text-center">
+          <small class="text-warning-emphasis d-block" style="font-size:11px;font-weight:700;">EXPIRING SOON (&le;30d)</small>
+          <strong class="text-warning-emphasis" style="font-size:15px;">{{ enterprise_stats.expiring_soon }}</strong>
+        </div>
+        <div class="px-3 py-1.5 rounded-3 bg-danger-subtle border border-danger-subtle text-center">
+          <small class="text-danger d-block" style="font-size:11px;font-weight:600;">EXPIRED</small>
+          <strong class="text-danger" style="font-size:15px;">{{ enterprise_stats.expired }}</strong>
+        </div>
+        <div class="px-3 py-1.5 rounded-3 bg-indigo-subtle border border-primary-subtle text-center">
+          <small class="text-primary d-block" style="font-size:11px;font-weight:600;">COLLECTED (INR)</small>
+          <strong class="text-primary" style="font-size:15px;">₹{{ enterprise_stats.revenue }}</strong>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Search and Filter Bar -->
+<div class="card border-0 shadow-sm p-3 mb-4 rounded-4" style="background:#FFFFFF;border:1px solid #E2E8F0 !important;">
+  <form method="get" class="row g-2 align-items-center">
+    <input type="hidden" name="view" value="{{ view_type }}">
+    <div class="col-md-6 col-lg-5">
+      <div class="input-group">
+        <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-search"></i></span>
+        <input type="text" name="q" class="form-control border-start-0" placeholder="Search by name, Gmail address, or plan tier..." value="{{ search_q|default:'' }}">
+      </div>
+    </div>
+    <div class="col-md-4 col-lg-3">
+      <select name="status" class="form-select" onchange="this.form.submit()">
+        <option value="" {% if not status_filter %}selected{% endif %}>All Expiration Statuses</option>
+        <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active &amp; Expiring Soon</option>
+        <option value="expiring_soon" {% if status_filter == 'expiring_soon' %}selected{% endif %}>Expiring Soon (&le;30 days)</option>
+        <option value="expired" {% if status_filter == 'expired' %}selected{% endif %}>Expired Only</option>
+      </select>
+    </div>
+    <div class="col-auto">
+      <button type="submit" class="btn btn-dark rounded-pill px-3">Filter</button>
+      {% if search_q or status_filter %}
+        <a href="{% url 'enterprise_admin_plans' %}?view={{ view_type }}" class="btn btn-outline-secondary rounded-pill px-3">Clear</a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+{% if view_type == 'personal' %}
+<!-- ================== SECTION 1: PERSONAL PLANS TABLE ================== -->
+<div class="ent-table-card">
+  <div class="ent-table-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div>
+      <h5 style="font-size:16px;font-weight:800;color:#0F172A;margin:0;">Personal Plan Subscribers (Yearly Renewable)</h5>
+      <small class="text-muted">Users who created individual digital business cards with or without physical NFC hardware.</small>
+    </div>
+    <span class="badge bg-light text-dark border px-3 py-1.5 rounded-pill fw-bold">
+      Showing {{ personal_plans|length }} Personal Users
+    </span>
+  </div>
+
+  <div class="table-responsive">
+    <table class="ent-table">
+      <thead>
+        <tr>
+          <th>User &amp; Gmail Account</th>
+          <th>Selected Yearly Plan</th>
+          <th>Price Paid</th>
+          <th>Activation Date</th>
+          <th>Expiration Date</th>
+          <th>Expiry Status</th>
+          <th>Reminder Notice</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in personal_plans %}
+          <tr>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <div style="width:36px;height:36px;border-radius:10px;background:#EFF6FF;color:#0084FF;display:grid;place-items:center;font-weight:800;font-size:14px;">
+                  {{ p.user.first_name|default:p.user.username|slice:":1"|upper }}
+                </div>
+                <div>
+                  <strong style="color:#0F172A;display:block;">{{ p.user.get_full_name|default:p.user.username }}</strong>
+                  {% if p.business_card %}
+                    <small class="text-secondary d-block"><i class="bi bi-card-heading me-1"></i>{{ p.business_card.business_name }}</small>
+                  {% endif %}
+                  <span class="text-primary small d-flex align-items-center gap-1">
+                    <i class="bi bi-envelope-at-fill" style="font-size:11px;"></i>
+                    <code>{{ p.user.email|default:"No Gmail registered" }}</code>
+                  </span>
+                </div>
+              </div>
+            </td>
+            <td>
+              <strong style="font-size:13.5px;color:#0F172A;display:block;">{{ p.plan_name }}</strong>
+              <small class="text-muted"><i class="bi bi-arrow-repeat text-success"></i> Renews Yearly</small>
+            </td>
+            <td>
+              <span class="fw-bold text-dark" style="font-size:15px;">₹{{ p.total_paid|default:"499" }}</span>
+              <small class="text-muted d-block">/ year</small>
+            </td>
+            <td>
+              <span style="font-size:13px;color:#334155;">{{ p.created_at|date:"d M Y" }}</span>
+              <small class="text-muted d-block">{{ p.created_at|time:"h:i A" }}</small>
+            </td>
+            <td>
+              <strong style="font-size:13.5px;color:#0F172A;display:block;">
+                {{ p.effective_expires_at|date:"d M Y"|default:"1 Year from start" }}
+              </strong>
+              <small class="text-muted">1-Year Cycle</small>
+            </td>
+            <td>
+              {% if p.is_expired %}
+                <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1 rounded-pill fw-bold" style="font-size:11.5px;">
+                  <i class="bi bi-x-circle-fill me-1"></i> Expired
+                </span>
+              {% elif p.status_label == 'Expiring Soon' %}
+                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2.5 py-1 rounded-pill fw-bold" style="font-size:11.5px;">
+                  <i class="bi bi-exclamation-triangle-fill me-1"></i> {{ p.days_remaining }} Days Left
+                </span>
+              {% else %}
+                <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1 rounded-pill fw-bold" style="font-size:11.5px;">
+                  <i class="bi bi-check-circle-fill me-1"></i> Active ({{ p.days_remaining }}d left)
+                </span>
+              {% endif %}
+            </td>
+            <td>
+              {% if p.last_notification_sent_at %}
+                <small class="text-success d-block fw-semibold">
+                  <i class="bi bi-check2-all"></i> Sent {{ p.last_notification_sent_at|date:"d M, H:i" }}
+                </small>
+              {% else %}
+                <small class="text-muted d-block">Not sent yet</small>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              <div class="d-inline-flex align-items-center gap-1">
+                <!-- Trigger Email to Gmail -->
+                <form method="post" action="{% url 'enterprise_admin_send_reminder' %}" style="display:inline;">
+                  {% csrf_token %}
+                  <input type="hidden" name="plan_id" value="{{ p.id }}">
+                  <input type="hidden" name="view_type" value="personal">
+                  <button type="submit" class="btn btn-sm btn-outline-primary rounded-pill py-1 px-2.5 d-inline-flex align-items-center gap-1" title="Send Expiration Reminder to {{ p.user.email }}">
+                    <i class="bi bi-send-fill" style="font-size:11px;"></i> Send Notice
+                  </button>
+                </form>
+
+                {% if p.business_card %}
+                  <a href="{% url 'card_preview' card_id=p.business_card.card_id %}" target="_blank" class="btn btn-sm btn-light border rounded-pill py-1 px-2" title="Preview Business Card">
+                    <i class="bi bi-eye"></i>
+                  </a>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="8" class="text-center py-5 text-muted">
+              <i class="bi bi-person-badge d-block mb-2" style="font-size:32px;color:#CBD5E1;"></i>
+              No personal subscribers match the criteria.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% else %}
+<!-- ================== SECTION 2: ENTERPRISE PLANS TABLE ================== -->
+<div class="ent-table-card">
+  <div class="ent-table-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div>
+      <h5 style="font-size:16px;font-weight:800;color:#0F172A;margin:0;">Enterprise Corporate Accounts &amp; CEOs</h5>
+      <small class="text-muted">Companies with multi-card bundles provisioned for employee teams and executive leadership.</small>
+    </div>
+    <span class="badge bg-light text-dark border px-3 py-1.5 rounded-pill fw-bold">
+      Showing {{ enterprise_plans|length }} Enterprise Clients
+    </span>
+  </div>
+
+  <div class="table-responsive">
+    <table class="ent-table">
+      <thead>
+        <tr>
+          <th>Company &amp; CEO Account</th>
+          <th>Enterprise Plan Tier</th>
+          <th>Card Quota / Team</th>
+          <th>Total Collected</th>
+          <th>Activation Date</th>
+          <th>Expiration Date</th>
+          <th>Expiry Status</th>
+          <th>Reminder Notice</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ep in enterprise_plans %}
+          <tr>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <div style="width:38px;height:38px;border-radius:10px;background:#0F172A;color:#FFFFFF;display:grid;place-items:center;font-weight:800;font-size:14px;">
+                  <i class="bi bi-buildings"></i>
+                </div>
+                <div>
+                  <strong style="color:#0F172A;display:block;font-size:14px;">{{ ep.company_name|default:"Enterprise Organization" }}</strong>
+                  <span class="text-secondary small d-block">
+                    CEO: <strong>{{ ep.company_head_name|default:ep.user.get_full_name|default:ep.user.username }}</strong>
+                  </span>
+                  <span class="text-primary small d-flex align-items-center gap-1">
+                    <i class="bi bi-envelope-at-fill" style="font-size:11px;"></i>
+                    <code>{{ ep.company_email|default:ep.user.email }}</code>
+                  </span>
+                </div>
+              </div>
+            </td>
+            <td>
+              <span class="badge-tier-popular">{{ ep.plan_name|default:"Enterprise Bundle (Yearly)" }}</span>
+              <small class="text-muted d-block mt-1"><i class="bi bi-arrow-repeat text-success"></i> Renews Yearly</small>
+            </td>
+            <td>
+              <span class="fw-bold text-dark" style="font-size:14px;">{{ ep.card_limit }} User Slots</span>
+              {% if ep.nfc_card_limit %}
+                <small class="text-info d-block fw-semibold">+ {{ ep.nfc_card_limit }} NFC Cards</small>
+              {% endif %}
+            </td>
+            <td>
+              <span class="fw-bold text-dark" style="font-size:15px;">₹{{ ep.total_paid }}</span>
+              <small class="text-muted d-block">/ year</small>
+            </td>
+            <td>
+              <span style="font-size:13px;color:#334155;">{{ ep.created_at|date:"d M Y" }}</span>
+              <small class="text-muted d-block">{{ ep.created_at|time:"h:i A" }}</small>
+            </td>
+            <td>
+              <strong style="font-size:13.5px;color:#0F172A;display:block;">
+                {{ ep.effective_expires_at|date:"d M Y"|default:"1 Year from start" }}
+              </strong>
+              <small class="text-muted">1-Year Cycle</small>
+            </td>
+            <td>
+              {% if ep.is_expired %}
+                <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2.5 py-1 rounded-pill fw-bold" style="font-size:11.5px;">
+                  <i class="bi bi-x-circle-fill me-1"></i> Expired
+                </span>
+              {% elif ep.status_label == 'Expiring Soon' %}
+                <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle px-2.5 py-1 rounded-pill fw-bold" style="font-size:11.5px;">
+                  <i class="bi bi-exclamation-triangle-fill me-1"></i> {{ ep.days_remaining }} Days Left
+                </span>
+              {% else %}
+                <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1 rounded-pill fw-bold" style="font-size:11.5px;">
+                  <i class="bi bi-check-circle-fill me-1"></i> Active ({{ ep.days_remaining }}d left)
+                </span>
+              {% endif %}
+            </td>
+            <td>
+              {% if ep.last_notification_sent_at %}
+                <small class="text-success d-block fw-semibold">
+                  <i class="bi bi-check2-all"></i> Sent {{ ep.last_notification_sent_at|date:"d M, H:i" }}
+                </small>
+              {% else %}
+                <small class="text-muted d-block">Not sent yet</small>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              <div class="d-inline-flex align-items-center gap-1">
+                <!-- Trigger Email to CEO Gmail -->
+                <form method="post" action="{% url 'enterprise_admin_send_reminder' %}" style="display:inline;">
+                  {% csrf_token %}
+                  <input type="hidden" name="plan_id" value="{{ ep.id }}">
+                  <input type="hidden" name="view_type" value="enterprise">
+                  <button type="submit" class="btn btn-sm btn-outline-warning text-dark fw-bold rounded-pill py-1 px-2.5 d-inline-flex align-items-center gap-1" title="Send Expiration Notice to CEO Gmail">
+                    <i class="bi bi-send-fill text-primary" style="font-size:11px;"></i> Notice to CEO
+                  </button>
+                </form>
+
+                <a href="{% url 'enterprise_admin_companies' %}" class="btn btn-sm btn-light border rounded-pill py-1 px-2.5" title="Manage Enterprise Client">
+                  <i class="bi bi-gear"></i>
+                </a>
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="9" class="text-center py-5 text-muted">
+              <i class="bi bi-buildings d-block mb-2" style="font-size:32px;color:#CBD5E1;"></i>
+              No enterprise plans match the criteria.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

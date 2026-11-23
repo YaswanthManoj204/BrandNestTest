@@ -28,6 +28,11 @@ from apps.cards.models import (
     BusinessCard, UserPlan, Team, CardLead, NFCTag,
     CompanySettings, WalletPassConfig, CardAnalyticsEvent, EnterpriseCompany
 )
+from apps.cards.notifications import (
+    send_plan_expiration_email,
+    send_super_admin_nfc_order_notification,
+    send_user_nfc_status_update_notification
+)
 from apps.websites.models import Industry, Website, ContactSubmission
 
 
@@ -43,7 +48,8 @@ ENTERPRISE_BUNDLES = [
         'team_cards': 4,
         'title': '5 Business Cards',
         'badge': 'Starter',
-        'meta': 'Includes your own card + 4 team member cards',
+        'billing_cycle': 'yearly',
+        'meta': 'Includes your own card + 4 team member cards · Yearly Renewable',
     },
     {
         'id': '10',
@@ -55,7 +61,8 @@ ENTERPRISE_BUNDLES = [
         'team_cards': 9,
         'title': '10 Business Cards',
         'badge': 'Most Popular',
-        'meta': 'Includes your own card + 9 team member cards',
+        'billing_cycle': 'yearly',
+        'meta': 'Includes your own card + 9 team member cards · Yearly Renewable',
     },
     {
         'id': '15',
@@ -67,7 +74,8 @@ ENTERPRISE_BUNDLES = [
         'team_cards': 14,
         'title': '15 Business Cards',
         'badge': 'Best Value',
-        'meta': 'Includes your own card + 14 team member cards',
+        'billing_cycle': 'yearly',
+        'meta': 'Includes your own card + 14 team member cards · Yearly Renewable',
     },
     # 2. Digital + Smart Contactless NFC Physical Cards Bundles
     {
@@ -80,7 +88,8 @@ ENTERPRISE_BUNDLES = [
         'team_cards': 4,
         'title': '5 Business Cards + 5 NFC Cards',
         'badge': '5 Cards + 5 NFC',
-        'meta': 'Includes 5 Digital Cards + 5 Custom Smart NFC Cards with Free Express Delivery',
+        'billing_cycle': 'yearly',
+        'meta': 'Includes 5 Digital Cards + 5 Custom Smart NFC Cards with Free Express Delivery · Yearly Renewable',
     },
     {
         'id': '10_nfc',
@@ -92,7 +101,8 @@ ENTERPRISE_BUNDLES = [
         'team_cards': 9,
         'title': '10 Business Cards + 10 NFC Cards',
         'badge': '10 Cards + 10 NFC',
-        'meta': 'Includes 10 Digital Cards + 10 Custom Smart NFC Cards with Free Express Delivery',
+        'billing_cycle': 'yearly',
+        'meta': 'Includes 10 Digital Cards + 10 Custom Smart NFC Cards with Free Express Delivery · Yearly Renewable',
     },
     {
         'id': '15_nfc',
@@ -104,7 +114,8 @@ ENTERPRISE_BUNDLES = [
         'team_cards': 14,
         'title': '15 Business Cards + 15 NFC Cards',
         'badge': '15 Cards + 15 NFC',
-        'meta': 'Includes 15 Digital Cards + 15 Custom Smart NFC Cards with Free Express Delivery',
+        'billing_cycle': 'yearly',
+        'meta': 'Includes 15 Digital Cards + 15 Custom Smart NFC Cards with Free Express Delivery · Yearly Renewable',
     },
 ]
 EXTRA_CARD_PRICE_INR = 199
@@ -467,7 +478,36 @@ def enterprise_checkout(request):
         plan.enterprise_parent = None
         plan.nfc_card_limit = (getattr(plan, 'nfc_card_limit', 0) or 0) + bundle_info['nfc_cards']
         plan.total_paid = (plan.total_paid or 0) + bundle_info['price']
+        plan.plan_name = f"{bundle_info['title']} (Yearly)"
+        plan.billing_cycle = 'yearly'
+        if not plan.expires_at:
+            plan.expires_at = timezone.now() + timedelta(days=365)
         plan.save()
+
+        # Synchronize EnterpriseCompany entity for Super Admin and reporting
+        comp_name = (plan.company_name or '').strip() or (f"{request.user.first_name}'s Enterprise" if request.user.first_name else f"{request.user.username}'s Enterprise")
+        company, _ = EnterpriseCompany.objects.get_or_create(
+            name=comp_name,
+            defaults={
+                'head_name': plan.company_head_name or request.user.get_full_name() or request.user.username,
+                'email': plan.company_email or request.user.email,
+                'phone': plan.company_phone,
+                'plan_tier': f"{bundle_info['title']} (Yearly)",
+                'card_quota': plan.card_limit,
+                'total_paid': plan.total_paid,
+                'billing_cycle': 'yearly',
+                'expires_at': plan.expires_at,
+            }
+        )
+        company.plan_tier = f"{bundle_info['title']} (Yearly)"
+        company.card_quota = plan.card_limit
+        company.total_paid = plan.total_paid
+        company.email = plan.company_email or request.user.email
+        company.head_name = plan.company_head_name or company.head_name
+        company.billing_cycle = 'yearly'
+        if not company.expires_at:
+            company.expires_at = plan.expires_at
+        company.save()
 
         if bundle_info['has_nfc']:
             messages.success(
@@ -1315,6 +1355,8 @@ def card_builder(request, card_id=None):
                 'paid_at': timezone.now().strftime('%d %b %Y, %I:%M %p'),
             }
             if nfc_ordered or quota.get('has_nfc'):
+                existing_nfc_status = target_card.layout_config['nfc_card'].get('status') if (target_card and target_card.layout_config and 'nfc_card' in target_card.layout_config) else None
+                existing_nfc_tracking = target_card.layout_config['nfc_card'].get('tracking_info', '') if (target_card and target_card.layout_config and 'nfc_card' in target_card.layout_config) else ''
                 layout_config['nfc_card'] = {
                     'ordered': True,
                     'theme': (request.POST.get('nfc_theme') or 'obsidian_black').strip(),
@@ -1331,7 +1373,8 @@ def card_builder(request, card_id=None):
                     'logo_data': (request.POST.get('nfc_logo_data') or '').strip(),
                     'logo_scale': (request.POST.get('nfc_logo_scale') or '1.0').strip(),
                     'positions': (request.POST.get('nfc_positions') or '{}').strip(),
-                    'status': 'Ready for Printing & Dispatch',
+                    'status': existing_nfc_status or 'Ready for Printing & Dispatch',
+                    'tracking_info': existing_nfc_tracking,
                 }
             elif target_card and target_card.layout_config and 'nfc_card' in target_card.layout_config:
                 layout_config['nfc_card'] = target_card.layout_config['nfc_card']
@@ -1354,7 +1397,8 @@ def card_builder(request, card_id=None):
                     })
         else:
             paid_amount = 999 if nfc_ordered else 499
-            plan_label = 'Personal Pro + Physical NFC Card' if nfc_ordered else 'Personal Pro Lifetime'
+            plan_label = 'Personal Pro + Physical NFC Card (Yearly)' if nfc_ordered else 'Personal Pro Digital (Yearly)'
+            personal_expires_at = timezone.now() + timedelta(days=365)
             if razorpay_payment_id or not target_card:
                 if not razorpay_payment_id:
                     razorpay_payment_id = f"pay_demo_{uuid.uuid4().hex[:10]}"
@@ -1366,9 +1410,13 @@ def card_builder(request, card_id=None):
                     'status': 'captured',
                     'method': razorpay_method,
                     'plan': plan_label,
+                    'billing_cycle': 'yearly',
+                    'expires_at': personal_expires_at.strftime('%d %b %Y'),
                     'paid_at': timezone.now().strftime('%d %b %Y, %I:%M %p'),
                 }
                 if nfc_ordered:
+                    existing_nfc_status = target_card.layout_config['nfc_card'].get('status') if (target_card and target_card.layout_config and 'nfc_card' in target_card.layout_config) else None
+                    existing_nfc_tracking = target_card.layout_config['nfc_card'].get('tracking_info', '') if (target_card and target_card.layout_config and 'nfc_card' in target_card.layout_config) else ''
                     layout_config['nfc_card'] = {
                         'ordered': True,
                         'theme': (request.POST.get('nfc_theme') or 'obsidian_black').strip(),
@@ -1385,13 +1433,18 @@ def card_builder(request, card_id=None):
                         'logo_data': (request.POST.get('nfc_logo_data') or '').strip(),
                         'logo_scale': (request.POST.get('nfc_logo_scale') or '1.0').strip(),
                         'positions': (request.POST.get('nfc_positions') or '{}').strip(),
-                        'status': 'Ready for Printing & Dispatch',
+                        'status': existing_nfc_status or 'Ready for Printing & Dispatch',
+                        'tracking_info': existing_nfc_tracking,
                     }
                 try:
                     user_plan, _ = UserPlan.objects.get_or_create(user=request.user)
                     if user_plan.plan_type != 'enterprise':
                         user_plan.plan_type = 'personal'
                         user_plan.total_paid = paid_amount
+                        user_plan.plan_name = plan_label
+                        user_plan.billing_cycle = 'yearly'
+                        if not user_plan.expires_at:
+                            user_plan.expires_at = personal_expires_at
                         user_plan.save()
                 except Exception:
                     pass
@@ -1502,9 +1555,16 @@ def card_builder(request, card_id=None):
         card.save()
         quota = _get_enterprise_quota(request.user)
 
-        if (nfc_ordered or quota.get('has_nfc')) and not NFCTag.objects.filter(card=card).exists():
+        if (nfc_ordered or quota.get('has_nfc') or (card.layout_config or {}).get('nfc_card', {}).get('ordered')):
+            if not NFCTag.objects.filter(card=card).exists():
+                try:
+                    NFCTag.objects.create(card=card, nfc_mode='web_card')
+                except Exception:
+                    pass
             try:
-                NFCTag.objects.create(card=card, nfc_mode='web_card')
+                standalone_path = reverse('card_standalone', kwargs={'slug': card.slug})
+                share_url = get_shareable_url(request, standalone_path)
+                send_super_admin_nfc_order_notification(card, share_url)
             except Exception:
                 pass
 
@@ -2121,13 +2181,17 @@ def admin_login_view(request):
                 messages.error(request, 'This account is currently disabled.')
                 return render(request, 'dashboard/admin_login.html', {'username': login_identifier, 'next': next_url})
 
+            if not (user.is_staff or user.is_superuser):
+                messages.error(request, f"Access denied. Account '{user.username}' does not have administrator privileges.")
+                return render(request, 'dashboard/admin_login.html', {'username': login_identifier, 'next': next_url})
+
             login(request, user)
             if remember_me:
                 request.session.set_expiry(1209600)  # 2 weeks
             else:
                 request.session.set_expiry(0)
 
-            messages.success(request, f'Welcome back, {user.first_name or user.username}!')
+            messages.success(request, f'Welcome back, Administrator {user.first_name or user.username}!')
             return redirect(next_url)
         else:
             messages.error(request, 'Invalid admin username or password. Please verify your credentials.')
@@ -2153,9 +2217,9 @@ def admin_gateway(request):
     """
     Direct handler for /admin and /admin/:
     - If user is authenticated as staff or superuser: redirects directly to /dashboard/overview/.
-    - If unauthenticated: redirects to the dedicated Admin Login portal (/admin/login/).
+    - If unauthenticated or regular client account: redirects to the dedicated Admin Login portal (/admin/login/).
     """
-    if request.user.is_authenticated:
+    if request.user.is_authenticated and (request.user.is_staff or request.user.is_superuser):
         return redirect('dashboard_overview')
     return redirect('admin_login')
 
@@ -2163,13 +2227,18 @@ def admin_gateway(request):
 def dashboard_auth_required(view_func):
     """
     Decorator for BrandNest Admin & Enterprise Dashboard views:
-    - If user is authenticated, executes view directly.
-    - If unauthenticated: redirects to the dedicated Admin Login portal (/admin/login/)
+    - If user is authenticated AND (is_staff or is_superuser): executes view directly.
+    - If unauthenticated or regular client account: redirects to the dedicated Admin Login portal (/admin/login/)
       with the requested path in the next parameter.
     """
     @wraps(view_func)
     def _wrapped_view(request, *args, **kwargs):
-        if not request.user.is_authenticated:
+        if not (request.user.is_authenticated and (request.user.is_staff or request.user.is_superuser)):
+            if request.user.is_authenticated:
+                messages.warning(
+                    request,
+                    f"Administrator privileges required. Account '{request.user.username}' is not authorized. Please log in with a Super Admin account."
+                )
             return redirect(f"{reverse('admin_login')}?next={request.path}")
         return view_func(request, *args, **kwargs)
     return _wrapped_view
@@ -2293,21 +2362,169 @@ def dashboard_messages(request):
     })
 
 
+def _is_enterprise_card(card):
+    """
+    Returns True if the card belongs to an Enterprise company or Enterprise plan.
+    """
+    if getattr(card, 'enterprise_company_id', None) is not None:
+        return True
+    if card.user and hasattr(card.user, 'card_plan') and card.user.card_plan.plan_type == 'enterprise':
+        return True
+    receipt = (card.layout_config or {}).get('payment_receipt', {})
+    plan_name = str(receipt.get('plan') or '')
+    if 'enterprise' in plan_name.lower():
+        return True
+    return False
+
+
+def _has_nfc_hardware(card):
+    """
+    Returns True if the card has an order for physical NFC hardware.
+    """
+    cfg = card.layout_config or {}
+    nfc = cfg.get('nfc_card')
+    if nfc and (nfc.get('ordered') or nfc.get('status')):
+        return True
+    receipt = cfg.get('payment_receipt', {})
+    amount = receipt.get('amount')
+    plan = str(receipt.get('plan') or '')
+    if amount == 999 or 'nfc' in plan.lower():
+        return True
+    return False
+
+
 @dashboard_auth_required
 def dashboard_nfc(request):
+    """
+    Personal Super Admin Console to inspect all custom Physical Contactless NFC Card orders
+    submitted by personal users, view 3D flip card designs, print production sheets,
+    and update fulfillment/dispatch statuses.
+    """
+    search_q = request.GET.get('q', '').strip()
+    status_filter = request.GET.get('status', '').strip()
+
+    all_cards = BusinessCard.objects.all().order_by('-created_at')
+    personal_nfc_orders = []
+
+    # Compute status metrics across all Personal NFC orders
+    total_orders = 0
+    in_production = 0
+    ready_dispatch = 0
+    shipped_count = 0
+    delivered_count = 0
+
+    for c in all_cards:
+        if _is_enterprise_card(c):
+            continue
+        if not _has_nfc_hardware(c):
+            continue
+
+        cfg = c.layout_config or {}
+        nfc = cfg.get('nfc_card') or {}
+        if not nfc.get('ordered'):
+            nfc['ordered'] = True
+        receipt = cfg.get('payment_receipt', {})
+        standalone_path = reverse('card_standalone', kwargs={'slug': c.slug})
+        c.share_url_full = get_shareable_url(request, standalone_path)
+        c.nfc_data = nfc
+        c.receipt_data = receipt
+        current_status = nfc.get('status', 'Ready for Dispatch')
+        c.current_status = current_status
+        c.tracking_info = nfc.get('tracking_info', '')
+
+        total_orders += 1
+        if current_status in ('Printing & Engraving', 'Order Placed'):
+            in_production += 1
+        elif current_status == 'Ready for Dispatch':
+            ready_dispatch += 1
+        elif current_status == 'Shipped':
+            shipped_count += 1
+        elif current_status == 'Delivered':
+            delivered_count += 1
+
+        # Search filter
+        if search_q:
+            q_low = search_q.lower()
+            matches = (
+                q_low in c.business_name.lower() or
+                q_low in (c.owner_name or '').lower() or
+                q_low in (c.email or '').lower() or
+                q_low in (c.phone or '').lower() or
+                q_low in c.card_id.lower() or
+                q_low in (nfc.get('name') or '').lower() or
+                q_low in (nfc.get('company_name') or '').lower()
+            )
+            if not matches:
+                continue
+
+        # Status filter
+        if status_filter and current_status != status_filter:
+            continue
+
+        personal_nfc_orders.append(c)
+
+    stats = {
+        'total': total_orders,
+        'in_production': in_production,
+        'ready_dispatch': ready_dispatch,
+        'shipped': shipped_count,
+        'delivered': delivered_count,
+    }
+
+    status_options = [
+        'Order Placed',
+        'Printing & Engraving',
+        'Ready for Dispatch',
+        'Shipped',
+        'Delivered'
+    ]
+
     nfc_tags = NFCTag.objects.select_related('card').all()
-    cards = BusinessCard.objects.all()
-    # If no tags exist yet, automatically map the existing cards so users have real tag models
-    if not nfc_tags.exists() and cards.exists():
-        for c in cards[:3]:
-            NFCTag.objects.get_or_create(card=c, defaults={'nfc_mode': 'web_card'})
-        nfc_tags = NFCTag.objects.select_related('card').all()
 
     return render(request, 'dashboard/nfc.html', {
         'active_menu': 'nfc',
+        'orders': personal_nfc_orders,
+        'stats': stats,
+        'search_q': search_q,
+        'status_filter': status_filter,
+        'status_options': status_options,
         'nfc_tags': nfc_tags,
-        'cards': cards,
     })
+
+
+@dashboard_auth_required
+def dashboard_nfc_status_update(request, card_id):
+    """
+    Personal Super Admin endpoint to update the personal physical NFC card status (e.g. Shipped)
+    and tracking information, notifying the client via Gmail.
+    """
+    if request.method != 'POST':
+        return redirect('dashboard_nfc')
+
+    card = get_object_or_404(BusinessCard, card_id=card_id)
+    new_status = request.POST.get('status', '').strip()
+    tracking_info = request.POST.get('tracking_info', '').strip()
+
+    if not card.layout_config:
+        card.layout_config = {}
+    if 'nfc_card' not in card.layout_config:
+        card.layout_config['nfc_card'] = {'ordered': True}
+
+    if new_status:
+        card.layout_config['nfc_card']['status'] = new_status
+    if tracking_info is not None:
+        card.layout_config['nfc_card']['tracking_info'] = tracking_info
+
+    card.save(update_fields=['layout_config'])
+
+    # Send client update notification
+    send_user_nfc_status_update_notification(card, new_status, tracking_info)
+
+    messages.success(
+        request,
+        f"Personal NFC card status for '{card.business_name}' updated to '{new_status}' and client notified!"
+    )
+    return redirect('dashboard_nfc')
 
 
 @dashboard_auth_required
@@ -2936,4 +3153,304 @@ def enterprise_admin_billing(request):
         'active_ent_menu': 'billing',
         'companies': companies,
     })
+
+
+@dashboard_auth_required
+def enterprise_admin_plans(request):
+    """
+    Super Admin view to inspect Personal and Enterprise yearly plans, expiration dates,
+    and trigger reminder notifications to users' Gmail addresses.
+    """
+    view_type = request.GET.get('view', 'personal').lower()
+    search_q = request.GET.get('q', '').strip()
+    status_filter = request.GET.get('status', '').strip().lower()
+
+    # 1. Personal Plans - sync any personal users who created cards directly
+    existing_user_ids = set(UserPlan.objects.filter(plan_type='personal').values_list('user_id', flat=True))
+    cards_without_plan = BusinessCard.objects.filter(
+        enterprise_company__isnull=True,
+        user__isnull=False
+    ).exclude(user_id__in=existing_user_ids)
+    for c in cards_without_plan:
+        if c.user:
+            up, _ = UserPlan.objects.get_or_create(user=c.user)
+            if up.plan_type != 'enterprise':
+                up.plan_type = 'personal'
+                receipt = (c.layout_config or {}).get('payment_receipt', {})
+                up.total_paid = receipt.get('amount') or 499
+                has_nfc = bool((c.layout_config or {}).get('nfc_card', {}).get('ordered'))
+                up.plan_name = 'Personal Pro + Physical NFC Card (Yearly)' if has_nfc else 'Personal Pro Digital (Yearly)'
+                up.billing_cycle = 'yearly'
+                if not up.expires_at:
+                    up.expires_at = c.created_at + timedelta(days=365)
+                up.save()
+
+    personal_qs = UserPlan.objects.filter(plan_type='personal').select_related('user').order_by('-created_at')
+    if search_q and view_type == 'personal':
+        personal_qs = personal_qs.filter(
+            Q(user__username__icontains=search_q) |
+            Q(user__email__icontains=search_q) |
+            Q(user__first_name__icontains=search_q) |
+            Q(user__last_name__icontains=search_q) |
+            Q(plan_name__icontains=search_q)
+        )
+
+    # 2. Enterprise Plans (CEOs and Companies)
+    enterprise_qs = UserPlan.objects.filter(
+        plan_type='enterprise',
+        is_ceo=True
+    ).select_related('user').order_by('-created_at')
+    if search_q and view_type == 'enterprise':
+        enterprise_qs = enterprise_qs.filter(
+            Q(company_name__icontains=search_q) |
+            Q(company_head_name__icontains=search_q) |
+            Q(company_email__icontains=search_q) |
+            Q(user__email__icontains=search_q) |
+            Q(plan_name__icontains=search_q)
+        )
+
+    # Filter personal items
+    filtered_personal = []
+    for p in personal_qs:
+        p.business_card = BusinessCard.objects.filter(user=p.user).first()
+        status_key = p.status_label.lower().replace(' ', '_')
+        if not status_filter or status_key == status_filter or (status_filter == 'active' and p.status_label in ('Active', 'Expiring Soon')):
+            filtered_personal.append(p)
+
+    # Filter enterprise items
+    filtered_enterprise = []
+    for ep in enterprise_qs:
+        ep.company_obj = EnterpriseCompany.objects.filter(name=ep.company_name).first() if ep.company_name else None
+        status_key = ep.status_label.lower().replace(' ', '_')
+        if not status_filter or status_key == status_filter or (status_filter == 'active' and ep.status_label in ('Active', 'Expiring Soon')):
+            filtered_enterprise.append(ep)
+
+    all_personal = list(personal_qs)
+    all_enterprise = list(enterprise_qs)
+
+    personal_stats = {
+        'total': len(all_personal),
+        'active': sum(1 for p in all_personal if not p.is_expired),
+        'expiring_soon': sum(1 for p in all_personal if p.status_label == 'Expiring Soon'),
+        'expired': sum(1 for p in all_personal if p.is_expired),
+        'revenue': sum((p.total_paid or 0) for p in all_personal),
+    }
+    enterprise_stats = {
+        'total': len(all_enterprise),
+        'active': sum(1 for p in all_enterprise if not p.is_expired),
+        'expiring_soon': sum(1 for p in all_enterprise if p.status_label == 'Expiring Soon'),
+        'expired': sum(1 for p in all_enterprise if p.is_expired),
+        'revenue': sum((p.total_paid or 0) for p in all_enterprise),
+    }
+
+    return render(request, 'enterprise_admin/plans.html', {
+        'active_ent_menu': 'plans',
+        'view_type': view_type,
+        'search_q': search_q,
+        'status_filter': status_filter,
+        'personal_plans': filtered_personal,
+        'enterprise_plans': filtered_enterprise,
+        'personal_stats': personal_stats,
+        'enterprise_stats': enterprise_stats,
+    })
+
+
+@dashboard_auth_required
+def enterprise_admin_send_reminder(request):
+    """
+    Manually triggers an expiration warning notification to a user or CEO's Gmail from Super Admin.
+    """
+    if request.method != 'POST':
+        return redirect('enterprise_admin_plans')
+
+    plan_id = request.POST.get('plan_id')
+    view_type = request.POST.get('view_type', 'personal')
+    plan = get_object_or_404(UserPlan, id=plan_id)
+
+    recipient_email = plan.company_email or plan.user.email
+    recipient_name = plan.company_head_name or plan.user.get_full_name() or plan.user.username
+    is_enterprise = (plan.plan_type == 'enterprise')
+    plan_name = plan.plan_name or ('Enterprise Corporate Bundle (Yearly)' if is_enterprise else 'Personal Pro Digital (Yearly)')
+    exp_date = plan.effective_expires_at
+
+    res = send_plan_expiration_email(
+        recipient_email=recipient_email,
+        recipient_name=recipient_name,
+        plan_name=plan_name,
+        expires_at=exp_date,
+        days_left=plan.days_remaining,
+        is_enterprise=is_enterprise,
+    )
+
+    if res.get('success'):
+        plan.last_notification_sent_at = timezone.now()
+        plan.save(update_fields=['last_notification_sent_at'])
+        messages.success(request, f"Expiration reminder notification successfully sent to {recipient_email}!")
+    else:
+        messages.error(request, f"Failed to send email to {recipient_email}: {res.get('error')}")
+
+    return redirect(f"{reverse('enterprise_admin_plans')}?view={view_type}")
+
+
+@dashboard_auth_required
+def enterprise_admin_nfc_orders(request):
+    """
+    Super Admin Console to inspect all custom Physical Contactless NFC Card orders,
+    view customized front & back engraving designs, download/print production sheets,
+    and update delivery/fulfillment status.
+    """
+    search_q = request.GET.get('q', '').strip()
+    status_filter = request.GET.get('status', '').strip()
+
+    all_cards = BusinessCard.objects.all().order_by('-created_at')
+    nfc_orders = []
+
+    for c in all_cards:
+        if not _is_enterprise_card(c):
+            continue
+        if not _has_nfc_hardware(c):
+            continue
+
+        cfg = c.layout_config or {}
+        nfc = cfg.get('nfc_card') or {}
+        if not nfc.get('ordered'):
+            nfc['ordered'] = True
+        receipt = cfg.get('payment_receipt', {})
+        standalone_path = reverse('card_standalone', kwargs={'slug': c.slug})
+        c.share_url_full = get_shareable_url(request, standalone_path)
+        c.nfc_data = nfc
+        c.receipt_data = receipt
+        current_status = nfc.get('status', 'Ready for Dispatch')
+        c.current_status = current_status
+        c.tracking_info = nfc.get('tracking_info', '')
+
+        # Search filter
+        if search_q:
+            q_low = search_q.lower()
+            matches = (
+                q_low in c.business_name.lower() or
+                q_low in (c.owner_name or '').lower() or
+                q_low in (c.email or '').lower() or
+                q_low in (c.phone or '').lower() or
+                q_low in c.card_id.lower() or
+                q_low in (nfc.get('name') or '').lower() or
+                q_low in (nfc.get('company_name') or '').lower()
+            )
+            if not matches:
+                continue
+
+        # Status filter
+        if status_filter and current_status != status_filter:
+            continue
+
+        nfc_orders.append(c)
+
+    # Compute status metrics across all Enterprise NFC orders
+    total_orders = 0
+    in_production = 0
+    ready_dispatch = 0
+    shipped_count = 0
+    delivered_count = 0
+
+    for c in all_cards:
+        if not _is_enterprise_card(c):
+            continue
+        if not _has_nfc_hardware(c):
+            continue
+        cfg = c.layout_config or {}
+        nfc = cfg.get('nfc_card') or {}
+        total_orders += 1
+        st = nfc.get('status', 'Ready for Dispatch')
+        if st in ('Printing & Engraving', 'Order Placed'):
+            in_production += 1
+        elif st == 'Ready for Dispatch':
+            ready_dispatch += 1
+        elif st == 'Shipped':
+            shipped_count += 1
+        elif st == 'Delivered':
+            delivered_count += 1
+
+    stats = {
+        'total': total_orders,
+        'in_production': in_production,
+        'ready_dispatch': ready_dispatch,
+        'shipped': shipped_count,
+        'delivered': delivered_count,
+    }
+
+    status_options = [
+        'Order Placed',
+        'Printing & Engraving',
+        'Ready for Dispatch',
+        'Shipped',
+        'Delivered'
+    ]
+
+    return render(request, 'enterprise_admin/nfc_orders.html', {
+        'active_ent_menu': 'nfc_orders',
+        'orders': nfc_orders,
+        'stats': stats,
+        'search_q': search_q,
+        'status_filter': status_filter,
+        'status_options': status_options,
+    })
+
+
+@dashboard_auth_required
+def enterprise_admin_nfc_status_update(request, card_id):
+    """
+    Super Admin endpoint to update the physical NFC card status (e.g. Shipped)
+    and tracking information, notifying the client via Gmail.
+    """
+    if request.method != 'POST':
+        return redirect('enterprise_admin_nfc_orders')
+
+    card = get_object_or_404(BusinessCard, card_id=card_id)
+    new_status = request.POST.get('status', '').strip()
+    tracking_info = request.POST.get('tracking_info', '').strip()
+
+    if not card.layout_config:
+        card.layout_config = {}
+    if 'nfc_card' not in card.layout_config:
+        card.layout_config['nfc_card'] = {'ordered': True}
+
+    if new_status:
+        card.layout_config['nfc_card']['status'] = new_status
+    if tracking_info is not None:
+        card.layout_config['nfc_card']['tracking_info'] = tracking_info
+
+    card.save(update_fields=['layout_config'])
+
+    # Send client update notification
+    send_user_nfc_status_update_notification(card, new_status, tracking_info)
+
+    messages.success(
+        request,
+        f"NFC card status for '{card.business_name}' updated to '{new_status}' and client notified!"
+    )
+    return redirect('enterprise_admin_nfc_orders')
+
+
+@dashboard_auth_required
+def enterprise_admin_nfc_print_sheet(request, card_id):
+    """
+    Printable high-resolution production specification sheet for the physical NFC laser engraver
+    and card printing workshop.
+    """
+    card = get_object_or_404(BusinessCard, card_id=card_id)
+    standalone_path = reverse('card_standalone', kwargs={'slug': card.slug})
+    share_url = get_shareable_url(request, standalone_path)
+    qr_data_uri = generate_qr_code_base64(share_url)
+
+    nfc = (card.layout_config or {}).get('nfc_card', {})
+
+    return render(request, 'enterprise_admin/nfc_print_sheet.html', {
+        'card': card,
+        'nfc': nfc,
+        'share_url': share_url,
+        'qr_data_uri': qr_data_uri,
+        'now': timezone.now(),
+    })
+
+
 

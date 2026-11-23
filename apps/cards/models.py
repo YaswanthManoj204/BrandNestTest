@@ -13,11 +13,14 @@ class EnterpriseCompany(models.Model):
     phone = models.CharField(max_length=30, blank=True)
     tax_id = models.CharField(max_length=80, blank=True)
     website = models.CharField(max_length=200, blank=True)
-    plan_tier = models.CharField(max_length=50, default='Starter (5 Cards)')
+    plan_tier = models.CharField(max_length=100, default='Starter (5 Cards Yearly)')
     card_quota = models.PositiveIntegerField(default=10)
     total_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     is_active = models.BooleanField(default=True)
     notes = models.TextField(blank=True)
+    billing_cycle = models.CharField(max_length=30, default='yearly')
+    expires_at = models.DateTimeField(null=True, blank=True)
+    last_notification_sent_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -51,6 +54,41 @@ class EnterpriseCompany(models.Model):
         if self.card_quota == 0:
             return 100
         return min(100, int((self.cards_used / self.card_quota) * 100))
+
+    @property
+    def effective_expires_at(self):
+        from datetime import timedelta
+        if self.expires_at:
+            return self.expires_at
+        if self.created_at:
+            return self.created_at + timedelta(days=365)
+        return None
+
+    @property
+    def is_expired(self):
+        from django.utils import timezone
+        exp = self.effective_expires_at
+        if not exp:
+            return False
+        return timezone.now() > exp
+
+    @property
+    def days_remaining(self):
+        from django.utils import timezone
+        exp = self.effective_expires_at
+        if not exp:
+            return 365
+        diff = (exp - timezone.now()).total_seconds() / 86400
+        return max(0, int(diff))
+
+    @property
+    def status_label(self):
+        if self.is_expired:
+            return 'Expired'
+        days = self.days_remaining
+        if days is not None and days <= 30:
+            return 'Expiring Soon'
+        return 'Active'
 
 
 class BusinessCard(models.Model):
@@ -150,11 +188,53 @@ class UserPlan(models.Model):
     card_limit = models.PositiveIntegerField(default=0)
     nfc_card_limit = models.PositiveIntegerField(default=0)
     total_paid = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+
+    # Yearly Subscription & Expiration tracking
+    plan_name = models.CharField(max_length=120, default='Personal Digital (Yearly)')
+    billing_cycle = models.CharField(max_length=30, default='yearly')
+    expires_at = models.DateTimeField(null=True, blank=True)
+    last_notification_sent_at = models.DateTimeField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.user.username} - {self.get_plan_type_display()} ({self.card_limit} cards)"
+
+    @property
+    def effective_expires_at(self):
+        from datetime import timedelta
+        if self.expires_at:
+            return self.expires_at
+        if self.created_at:
+            return self.created_at + timedelta(days=365)
+        return None
+
+    @property
+    def is_expired(self):
+        from django.utils import timezone
+        exp = self.effective_expires_at
+        if not exp:
+            return False
+        return timezone.now() > exp
+
+    @property
+    def days_remaining(self):
+        from django.utils import timezone
+        exp = self.effective_expires_at
+        if not exp:
+            return 365
+        diff = (exp - timezone.now()).total_seconds() / 86400
+        return max(0, int(diff))
+
+    @property
+    def status_label(self):
+        if self.is_expired:
+            return 'Expired'
+        days = self.days_remaining
+        if days is not None and days <= 30:
+            return 'Expiring Soon'
+        return 'Active'
 
 
 class Team(models.Model):

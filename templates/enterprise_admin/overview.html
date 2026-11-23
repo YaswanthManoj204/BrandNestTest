@@ -17,6 +17,35 @@
   </div>
 </div>
 
+<!-- Super Admin Two-Option Plan Navigation Card -->
+<div class="card border-0 shadow-sm p-4 mb-4 rounded-4" style="background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); color: #FFFFFF; border: 1px solid rgba(255,255,255,0.1) !important;">
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+    <div>
+      <span class="badge bg-warning text-dark fw-bold px-2.5 py-1 rounded-pill mb-2" style="font-size:11px;">
+        <i class="bi bi-clock-history me-1"></i> YEARLY SUBSCRIPTION & EXPIRATION HUB
+      </span>
+      <h3 style="font-size:20px;font-weight:800;margin:0 0 4px;color:#FFFFFF;">Super Admin Subscription Central</h3>
+      <p style="font-size:13px;color:#94A3B8;margin:0;max-width:680px;">
+        Monitor individual personal subscriptions and multi-seat corporate enterprise accounts. Track expiration countdowns and dispatch instant renewal reminders to client Gmail accounts.
+      </p>
+    </div>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <a href="{% url 'enterprise_admin_nfc_orders' %}" class="btn btn-warning rounded-pill px-3 py-2.5 fw-bold d-inline-flex align-items-center gap-2 text-dark shadow-sm" id="btnOverviewNfcOrders">
+        <i class="bi bi-broadcast-pin"></i>
+        <span>NFC Orders</span>
+      </a>
+      <a href="{% url 'enterprise_admin_plans' %}?view=personal" class="btn btn-primary rounded-pill px-3 py-2.5 fw-bold d-inline-flex align-items-center gap-2 shadow-sm" id="btnOverviewPersonalPlans">
+        <i class="bi bi-person-badge-fill"></i>
+        <span>Personal Plans</span>
+      </a>
+      <a href="{% url 'enterprise_admin_plans' %}?view=enterprise" class="btn btn-outline-light rounded-pill px-3 py-2.5 fw-bold d-inline-flex align-items-center gap-2" id="btnOverviewEnterprisePlans">
+        <i class="bi bi-buildings-fill text-warning"></i>
+        <span>Enterprise Plans</span>
+      </a>
+    </div>
+  </div>
+</div>
+
 <!-- 4 Key Metric Cards -->
 <div class="row g-4 mb-4">
   <div class="col-sm-6 col-xl-3">
