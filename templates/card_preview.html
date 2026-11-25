@@ -17,24 +17,27 @@
                 </span>
                 {% elif card.layout_config.nfc_card and card.layout_config.nfc_card.ordered %}
                 <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-1.5 rounded-pill">
-                    <i class="bi bi-broadcast me-1"></i> Paid ₹999 (Digital + NFC Bundle)
+                    <i class="bi bi-broadcast me-1"></i> Paid ₹{{ pricing.personal_nfc_price|default:999 }} (Digital + NFC Bundle)
                 </span>
                 {% else %}
                 <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-1.5 rounded-pill">
-                    <i class="bi bi-shield-fill-check me-1"></i> Paid ₹499 via Razorpay (Demo)
+                    <i class="bi bi-shield-fill-check me-1"></i> Paid ₹{{ pricing.personal_digital_price|default:499 }} via Razorpay (Demo)
                 </span>
                 {% endif %}
             </div>
             <h2 class="fw-bold text-dark mb-1">{{ card.business_name }}</h2>
-            <p class="text-muted mb-0">
+            <div class="d-flex flex-wrap align-items-center gap-3 text-muted small mb-0">
+                <span>
+                    Shareable Subdomain Link: <a href="{{ share_url }}" target="_blank"
+                        class="fw-bold text-primary text-decoration-none" title="Open live business card">{{ share_url }}</a>
+                </span>
                 {% if card.existing_website %}
-                Website: <a href="{{ card.existing_website }}" target="_blank"
-                    class="fw-semibold text-primary text-decoration-none">{{ card.existing_website }}</a>
-                {% else %}
-                Shareable Card Link: <a href="{{ share_url }}" target="_blank"
-                    class="fw-semibold text-primary text-decoration-none">{{ share_url }}</a>
+                <span>
+                    &bull; Website: <a href="{{ card.existing_website }}" target="_blank"
+                        class="fw-semibold text-secondary text-decoration-none">{{ card.existing_website }}</a>
+                </span>
                 {% endif %}
-            </p>
+            </div>
         </div>
         <div class="col-md-6 text-md-end mt-3 mt-md-0 d-flex flex-wrap align-items-center justify-content-md-end gap-2">
             <a href="{% url 'card_list' %}" class="btn btn-outline-primary rounded-pill px-3 shadow-sm fw-semibold" title="View all cards & team dashboard">
@@ -78,11 +81,11 @@
                     <h5 class="fw-bold text-dark mb-0">Card Details</h5>
                     {% if card.layout_config.nfc_card and card.layout_config.nfc_card.ordered %}
                     <span class="badge bg-info-subtle text-info border border-info-subtle rounded-pill px-2.5 py-1 small">
-                        <i class="bi bi-broadcast me-1"></i> Paid ₹999 Bundle
+                        <i class="bi bi-broadcast me-1"></i> Paid ₹{{ pricing.personal_nfc_price|default:999 }} Bundle
                     </span>
                     {% else %}
                     <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2.5 py-1 small">
-                        <i class="bi bi-shield-check me-1"></i> Paid ₹499
+                        <i class="bi bi-shield-check me-1"></i> Paid ₹{{ pricing.personal_digital_price|default:499 }}
                     </span>
                     {% endif %}
                 </div>
@@ -92,17 +95,21 @@
                         <code class="fw-bold text-dark">{{ card.card_id }}</code>
                     </li>
                     <li class="d-flex justify-content-between align-items-center border-bottom pb-2">
-                        <span>Direct Access Slug</span>
-                        <span class="text-dark fw-medium">/card/{{ card.slug }}/</span>
+                        <span>Card Subdomain URL</span>
+                        <a href="{{ share_url }}" target="_blank" class="text-primary fw-bold text-decoration-none text-truncate" style="max-width: 260px;" title="Open live business card">{{ share_url }}</a>
+                    </li>
+                    <li class="d-flex justify-content-between align-items-center border-bottom pb-2">
+                        <span>Production Subdomain</span>
+                        <code class="text-primary fw-semibold" style="font-size:12px;">https://{{ card.slug }}.[your-domain]/</code>
                     </li>
                     <li class="d-flex justify-content-between align-items-center border-bottom pb-2">
                         <span>Payment Status</span>
                         {% if card.layout_config.payment_receipt.enterprise or card.user.card_plan.enterprise_parent or card.user.card_plan.is_ceo %}
                         <span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i> Pre-paid by Company Plan</span>
                         {% elif card.layout_config.nfc_card and card.layout_config.nfc_card.ordered %}
-                        <span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i> Paid ₹999 (Digital + NFC Bundle)</span>
+                        <span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i> Paid ₹{{ pricing.personal_nfc_price|default:999 }} (Digital + NFC Bundle)</span>
                         {% else %}
-                        <span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i> Paid ₹499 (Razorpay Demo)</span>
+                        <span class="text-success fw-semibold"><i class="bi bi-check-circle-fill me-1"></i> Paid ₹{{ pricing.personal_digital_price|default:499 }} (Razorpay Demo)</span>
                         {% endif %}
                     </li>
                     {% if card.layout_config.nfc_card and card.layout_config.nfc_card.ordered %}
@@ -133,6 +140,23 @@
                         <span class="fw-bold text-dark">{{ card.views_count }}</span>
                     </li>
                 </ul>
+
+                <!-- Instant Digital Business Card QR Code Display -->
+                <div class="p-3 bg-light rounded-4 border text-center mb-3">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <span class="fw-bold text-dark small"><i class="bi bi-qr-code text-primary me-1"></i> Card QR Code</span>
+                        <span class="badge bg-success-subtle text-success rounded-pill px-2 py-0.5" style="font-size:10px;">Ready to Scan</span>
+                    </div>
+                    <div class="d-inline-block p-2 bg-white rounded-3 shadow-sm border mb-2">
+                        <img src="{% if qr_data_uri %}{{ qr_data_uri }}{% else %}{% url 'card_qr_image' slug=card.slug %}{% endif %}" alt="{{ card.name }} QR Code" style="width: 125px; height: 125px; display: block;" class="img-fluid rounded">
+                    </div>
+                    <div class="text-muted" style="font-size:11.5px;margin-bottom:8px;">
+                        Instant contactless QR for <strong class="text-dark">{{ card.name }}</strong>
+                    </div>
+                    <a href="{% url 'card_qr_image' slug=card.slug %}?download=1" download="{{ card.slug }}-qr.png" class="btn btn-sm btn-outline-dark rounded-pill px-3 py-1.5 fw-semibold w-100 shadow-sm" style="font-size:12px;">
+                        <i class="bi bi-download me-1"></i> Download High-Res QR Code (PNG)
+                    </a>
+                </div>
 
                 <div class="d-grid gap-2">
                     <a href="{% url 'card_list' %}" class="btn btn-primary rounded-pill shadow-sm">
@@ -256,6 +280,27 @@
                 </div>
                 {% endif %}
             </div>
+            {% else %}
+            <!-- Physical Contactless Smart NFC Card Upgrade Promo -->
+            <div class="card shadow-sm rounded-4 border-0 p-3 mt-3 text-white" style="background: linear-gradient(145deg, #0F172A 0%, #1E293B 100%); border: 1px solid rgba(56,189,248,0.35) !important;">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <div class="d-flex align-items-center gap-1.5">
+                        <span class="badge bg-info-subtle text-info border border-info-subtle rounded-pill px-2.5 py-0.5" style="font-size:10.5px;">
+                            <i class="bi bi-broadcast me-1"></i> Hardware Upgrade
+                        </span>
+                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-0.5" style="font-size:10.5px;">
+                            ₹{{ pricing.personal_nfc_upgrade_price|default:500 }} Only
+                        </span>
+                    </div>
+                </div>
+                <h6 class="fw-bold text-white mb-1" style="font-size:14px;">Want a Physical Contactless NFC Card?</h6>
+                <p class="text-white-50 small mb-3" style="font-size:12px;line-height:1.4;">
+                    Get a luxury laser-engraved Smart NFC card delivered to your doorstep. Instant tap-to-share on any smartphone — no app required.
+                </p>
+                <a href="{% url 'card_edit' card_id=card.card_id %}" class="btn btn-sm btn-info rounded-pill w-100 fw-bold py-2 text-dark" style="font-size:12.5px;">
+                    <i class="bi bi-palette-fill me-1"></i> Preview &amp; Order Physical NFC Card
+                </a>
+            </div>
             {% endif %}
             </div>
         </div>
@@ -293,11 +338,7 @@
                     </button>
                 </div>
                 <div class="text-muted" style="font-size: 0.78rem;">
-                    {% if '192.168.' in share_url or '10.' in share_url or '172.' in share_url or '127.0.0.1' in share_url or 'localhost' in share_url %}
-                    <i class="bi bi-wifi me-1 text-primary"></i> Connect your phone to the same Wi-Fi network as this computer to scan locally
-                    {% else %}
-                    <i class="bi bi-check-circle-fill me-1 text-success"></i> Accessible anywhere on cellular data or Wi-Fi
-                    {% endif %}
+                    <i class="bi bi-globe me-1 text-success"></i> Direct Subdomain &bull; Accessible worldwide on iOS, Android &amp; Desktop
                 </div>
 
                 <div class="d-grid gap-2 mt-3">

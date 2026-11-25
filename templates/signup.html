@@ -529,9 +529,9 @@ footer {
   <nav class="nav" aria-label="Main Navigation">
     <a href="{% url 'landing' %}" class="logo"><span class="mark"></span>BrandNest</a>
     <ul>
-      <li><a href="{% url 'landing' %}#modules">Modules</a></li>
+      <li><a href="{% url 'landing' %}">Home</a></li>
       <li><a href="{% url 'card_builder' %}">Business Card</a></li>
-      <li><a href="{% url 'website_builder' %}">Website Builder</a></li>
+      <li><a href="{% url 'card_choose_plan' %}">NFC Cards</a></li>
     </ul>
     <a class="pill sm light" href="{% url 'login' %}{% if next %}?next={{ next|urlencode }}{% endif %}">Already have an account? <b>Log In</b></a>
   </nav>
@@ -547,10 +547,10 @@ footer {
           <span class="showcase-dot"></span> BrandNest ID
         </div>
         <h1 class="auth-headline">
-          Build your digital card & company website <b>with zero code.</b>
+          Build your digital card &amp; physical NFC pass <b>with zero code.</b>
         </h1>
         <p class="auth-sub">
-          One unified account to launch interactive digital business cards, route custom domains, and deploy high-converting websites.
+          One unified account to launch interactive digital business cards, route custom subdomains, and customize smart NFC hardware.
         </p>
 
         <div class="feature-list">
@@ -562,10 +562,10 @@ footer {
             </div>
           </div>
           <div class="feature-item">
-            <div class="feature-icon"><i class="bi bi-globe2"></i></div>
+            <div class="feature-icon"><i class="bi bi-broadcast"></i></div>
             <div class="feature-text">
-              <b>Custom Domain Company Websites</b>
-              <span>Deploy turnkey multi-page sites with dynamic industry sections and contact routing.</span>
+              <b>Contactless NFC Hardware Cards</b>
+              <span>Custom UV laser engraved physical cards with NTAG216 chip tap for iPhone and Android.</span>
             </div>
           </div>
           <div class="feature-item">

@@ -229,7 +229,13 @@
   }
 
   function downloadWalletFile() {
-    alert('Wallet Pass bundle (.pkpass) generated!\nYour smartphone can now install this pass directly to your Apple or Google Wallet.');
+    const select = document.getElementById('walletCardSelect');
+    const opt = select ? select.options[select.selectedIndex] : null;
+    const cardName = opt ? (opt.dataset.name || opt.dataset.company) : 'Business Card';
+    const slug = opt ? opt.dataset.slug : '';
+    const platform = currentWalletPlatform === 'apple' ? 'Apple Wallet' : 'Google Wallet';
+    const cardUrl = window.location.origin + '/card/' + (slug ? slug + '/' : '');
+    alert(`${platform} Pass Synchronized!\n\nCard: ${cardName}\nCard URL: ${cardUrl}\n\nYour smartphone pass is encoded with your official business card QR code and link.`);
   }
 </script>
 {% endblock %}

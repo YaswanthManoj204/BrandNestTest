@@ -9,6 +9,9 @@
     <p style="font-size:13.5px;color:#64748B;margin:0;">Overview of active corporate pricing tiers, yearly quota packaging, and enterprise transaction history.</p>
   </div>
   <div class="d-flex gap-2">
+    <a href="{% url 'enterprise_admin_pricing' %}" class="btn btn-primary rounded-pill px-3 py-2 fw-bold shadow-sm">
+      <i class="bi bi-tag-fill me-1"></i> Change Platform Pricing &rarr;
+    </a>
     <a href="{% url 'enterprise_admin_plans' %}?view=personal" class="btn btn-outline-primary rounded-pill px-3 py-2 fw-bold">
       <i class="bi bi-person-fill"></i> View Personal Plans
     </a>
@@ -24,8 +27,8 @@
     <div class="card border-0 shadow-sm p-4 rounded-4 h-100" style="background:#FFFFFF;border:1px solid #E2E8F0 !important;">
       <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1 rounded-pill fw-bold w-auto align-self-start mb-2">STARTER</span>
       <h3 class="fw-extrabold text-dark mt-2 mb-1">5 Cards Bundle</h3>
-      <div class="display-6 fw-bold text-dark my-2">₹999 <small class="text-muted" style="font-size:14px;font-weight:400;">/ year</small></div>
-      <p class="text-secondary small mb-3">₹199.80 per employee card. Perfect for small leadership teams and founders. Renews yearly.</p>
+      <div class="display-6 fw-bold text-dark my-2">₹{{ bundles.0.price|default:999 }} <small class="text-muted" style="font-size:14px;font-weight:400;">/ year</small></div>
+      <p class="text-secondary small mb-3">₹{{ bundles.0.per_card|default:"199.80" }} per employee card. Perfect for small leadership teams and founders. Renews yearly.</p>
       <ul class="list-unstyled small text-secondary mb-0">
         <li class="py-1"><i class="bi bi-check2 text-success me-2"></i> 5 Full Dynamic NFC/QR Cards</li>
         <li class="py-1"><i class="bi bi-check2 text-success me-2"></i> Unlimited Inbound Leads</li>
@@ -39,8 +42,8 @@
       <span class="position-absolute top-0 end-0 translate-middle badge bg-primary rounded-pill px-3 py-1.5 fw-bold" style="font-size:11px;">MOST POPULAR</span>
       <span class="badge bg-indigo-subtle text-primary border border-indigo-subtle px-2.5 py-1 rounded-pill fw-bold w-auto align-self-start mb-2">GROWTH</span>
       <h3 class="fw-extrabold text-dark mt-2 mb-1">10 Cards Bundle</h3>
-      <div class="display-6 fw-bold text-dark my-2">₹1,799 <small class="text-muted" style="font-size:14px;font-weight:400;">/ year</small></div>
-      <p class="text-secondary small mb-3">₹179.90 per employee card. Tailored for growing sales departments. Renews yearly.</p>
+      <div class="display-6 fw-bold text-dark my-2">₹{{ bundles.1.price|default:1799 }} <small class="text-muted" style="font-size:14px;font-weight:400;">/ year</small></div>
+      <p class="text-secondary small mb-3">₹{{ bundles.1.per_card|default:"179.90" }} per employee card. Tailored for growing sales departments. Renews yearly.</p>
       <ul class="list-unstyled small text-secondary mb-0">
         <li class="py-1"><i class="bi bi-check2 text-success me-2"></i> 10 Dynamic Business Cards</li>
         <li class="py-1"><i class="bi bi-check2 text-success me-2"></i> Team & Department Segregation</li>
@@ -53,8 +56,8 @@
     <div class="card border-0 shadow-sm p-4 rounded-4 h-100" style="background:#FFFFFF;border:1px solid #E2E8F0 !important;">
       <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1 rounded-pill fw-bold w-auto align-self-start mb-2">BEST VALUE</span>
       <h3 class="fw-extrabold text-dark mt-2 mb-1">15 Cards Bundle</h3>
-      <div class="display-6 fw-bold text-dark my-2">₹2,499 <small class="text-muted" style="font-size:14px;font-weight:400;">/ year</small></div>
-      <p class="text-secondary small mb-3">₹166.60 per employee card. Maximum economy for enterprise divisions. Renews yearly.</p>
+      <div class="display-6 fw-bold text-dark my-2">₹{{ bundles.2.price|default:2499 }} <small class="text-muted" style="font-size:14px;font-weight:400;">/ year</small></div>
+      <p class="text-secondary small mb-3">₹{{ bundles.2.per_card|default:"166.60" }} per employee card. Maximum economy for enterprise divisions. Renews yearly.</p>
       <ul class="list-unstyled small text-secondary mb-0">
         <li class="py-1"><i class="bi bi-check2 text-success me-2"></i> 15 Full Dynamic Employee Cards</li>
         <li class="py-1"><i class="bi bi-check2 text-success me-2"></i> Custom Domain Assignment</li>

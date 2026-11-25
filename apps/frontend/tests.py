@@ -3,7 +3,7 @@ from django.contrib.auth.models import User
 from django.test import TestCase, Client
 from django.urls import reverse
 from apps.domains.models import Domain
-from apps.cards.models import BusinessCard, UserPlan
+from apps.cards.models import BusinessCard, UserPlan, PlatformPricing, CardLead, EnterpriseCompany
 from apps.websites.models import Industry, Website
 
 
@@ -35,7 +35,7 @@ class FrontendFlowTests(TestCase):
         res = self.client.get(reverse('landing'))
         self.assertEqual(res.status_code, 200)
         self.assertContains(res, "Build business card")
-        self.assertContains(res, "Make your website")
+        self.assertContains(res, "Order physical NFC card")
 
     def test_card_builder_requires_login_redirect(self):
         res = self.client.get(reverse('card_builder'))
@@ -1761,13 +1761,24 @@ class FrontendFlowTests(TestCase):
         self.assertIsNotNone(card)
 
         # Verify Super Admin received email notification with design and link
-        self.assertGreaterEqual(len(mail.outbox), 1)
-        admin_email = mail.outbox[0]
+        self.assertGreaterEqual(len(mail.outbox), 2)
+        admin_emails = [m for m in mail.outbox if 'admin@brandnest.io' in m.to or 'SUPER ADMIN' in m.body or 'New Physical NFC' in m.subject]
+        self.assertTrue(len(admin_emails) > 0)
+        admin_email = admin_emails[0]
         self.assertIn('Physical NFC Card Order', admin_email.subject)
         self.assertIn('Arjun Robotics Labs', admin_email.subject)
         self.assertIn('Obsidian Black', admin_email.body)
         self.assertIn('Gold', admin_email.body)
         self.assertIn(card.share_url, admin_email.body)
+
+        # Verify Client received Order Placed confirmation email to their login/signup email
+        client_order_emails = [m for m in mail.outbox if 'arjun.innovations@gmail.com' in m.to]
+        self.assertTrue(len(client_order_emails) > 0)
+        client_order_email = client_order_emails[0]
+        self.assertIn('Order Placed', client_order_email.subject)
+        self.assertIn('Physical Contactless NFC Card', client_order_email.subject)
+        self.assertIn('Arjun Reddy', client_order_email.body)
+        self.assertIn('Obsidian Black', client_order_email.body)
 
         # 2. Super Admin logs in
         admin_user = User.objects.create_user(
@@ -1933,3 +1944,817 @@ class FrontendFlowTests(TestCase):
         })
         self.assertEqual(login_admin.status_code, 302)
         self.assertEqual(login_admin.url, reverse('dashboard_overview'))
+
+    def test_super_admin_change_prices_and_dynamic_reflection(self):
+        """
+        Verify:
+        1. Super Admin can view pricing management in both Personal Super Admin (/dashboard/pricing/)
+           and Enterprise Super Admin (/enterprise-admin/pricing/).
+        2. Super Admin can submit updated prices for Personal Digital, NFC, and Enterprise bundles.
+        3. Updated prices immediately reflect across the platform:
+           - /card/choose-plan/
+           - /card/build/
+           - /enterprise/checkout/
+           - Personal card creation payment receipt calculations.
+        4. Super Admin can reset prices back to system defaults.
+        """
+        admin_user = User.objects.create_superuser('price_admin', 'pricing@brandnest.io', 'PriceAdminPass123!')
+        self.client.force_login(admin_user)
+
+        # 1. Access pricing page from both dashboards
+        res_dash = self.client.get(reverse('dashboard_pricing'))
+        self.assertEqual(res_dash.status_code, 200)
+        self.assertContains(res_dash, 'Plan &amp; Card Pricing Management')
+
+        res_ent = self.client.get(reverse('enterprise_admin_pricing'))
+        self.assertEqual(res_ent.status_code, 200)
+        self.assertContains(res_ent, 'Plan &amp; Card Pricing Management')
+
+        # 2. Update prices to custom values
+        post_data = {
+            'action': 'save',
+            'personal_digital_price': '699',
+            'personal_nfc_price': '1299',
+            'enterprise_5_digital_price': '1499',
+            'enterprise_10_digital_price': '2599',
+            'enterprise_15_digital_price': '3499',
+            'enterprise_5_nfc_price': '3199',
+            'enterprise_10_nfc_price': '5799',
+            'enterprise_15_nfc_price': '7999',
+            'enterprise_extra_card_price': '249',
+        }
+        save_res = self.client.post(reverse('dashboard_pricing'), post_data, follow=True)
+        self.assertEqual(save_res.status_code, 200)
+        self.assertContains(save_res, 'Pricing configuration updated and published across all plans successfully!')
+
+        pricing = PlatformPricing.get_pricing()
+        self.assertEqual(pricing.personal_digital_price, 699)
+        self.assertEqual(pricing.personal_nfc_price, 1299)
+        self.assertEqual(pricing.enterprise_5_digital_price, 1499)
+        self.assertEqual(pricing.enterprise_10_digital_price, 2599)
+        self.assertEqual(pricing.enterprise_15_digital_price, 3499)
+        self.assertEqual(pricing.enterprise_5_nfc_price, 3199)
+        self.assertEqual(pricing.enterprise_10_nfc_price, 5799)
+        self.assertEqual(pricing.enterprise_15_nfc_price, 7999)
+        self.assertEqual(pricing.enterprise_extra_card_price, 249)
+
+        # 3. Check reflection on /card/choose-plan/
+        choose_res = self.client.get(reverse('card_choose_plan'))
+        self.assertEqual(choose_res.status_code, 200)
+        self.assertContains(choose_res, '₹699')
+        self.assertContains(choose_res, 'Digital Card (₹699) or Custom Smart NFC Card Bundle (₹1299)')
+
+        # 4. Check reflection on /card/build/
+        build_res = self.client.get(reverse('card_builder'))
+        self.assertEqual(build_res.status_code, 200)
+        self.assertContains(build_res, '₹699')
+        self.assertContains(build_res, 'Generate Business Card (₹699)')
+        self.assertContains(build_res, '₹1299')
+        self.assertContains(build_res, 'Design NFC Card &amp; Pay (₹1299)')
+        self.assertContains(build_res, 'window.personalDigitalPrice = 699;')
+        self.assertContains(build_res, 'window.personalNfcPrice = 1299;')
+
+        # 5. Check reflection in enterprise checkout
+        session = self.client.session
+        session['enterprise_onboarding'] = {
+            'company_name': 'Acme Global Ventures',
+            'company_head_name': 'Alice Wonder',
+            'email': 'alice@acmeglobal.com',
+            'phone': '+919876543210',
+            'industry': 'technology-and-it',
+        }
+        session.save()
+        ent_checkout_res = self.client.get(reverse('enterprise_checkout'))
+        self.assertEqual(ent_checkout_res.status_code, 200)
+        self.assertContains(ent_checkout_res, '₹1499')
+        self.assertContains(ent_checkout_res, '₹3199')
+
+        # 6. Verify personal card creation saves receipt with the updated price
+        card_res = self.client.post(reverse('card_builder'), {
+            'business_name': 'Alice Dynamic Studio',
+            'owner_name': 'Alice Wonder',
+            'nfc_ordered': 'true',
+            'razorpay_payment_id': 'pay_dyn_test_123',
+            'razorpay_amount': '1299',
+        })
+        self.assertEqual(card_res.status_code, 302)
+        new_card = BusinessCard.objects.get(business_name='Alice Dynamic Studio')
+        receipt = new_card.layout_config.get('payment_receipt', {})
+        self.assertEqual(receipt.get('amount'), 1299)
+
+        # 7. Reset to defaults from Enterprise Admin Pricing
+        reset_res = self.client.post(reverse('enterprise_admin_pricing'), {'action': 'reset'}, follow=True)
+        self.assertEqual(reset_res.status_code, 200)
+        self.assertContains(reset_res, 'Pricing configuration successfully reset to system defaults.')
+
+        pricing_reset = PlatformPricing.get_pricing()
+        self.assertEqual(pricing_reset.personal_digital_price, 499)
+        self.assertEqual(pricing_reset.personal_nfc_price, 999)
+        self.assertEqual(pricing_reset.enterprise_5_digital_price, 999)
+        self.assertEqual(pricing_reset.enterprise_extra_card_price, 199)
+
+    def test_personal_vs_enterprise_full_dashboard_segregation(self):
+        """
+        Verify that Personal cards/leads/metrics and Enterprise cards/leads/metrics
+        are strictly isolated and never mix up:
+        1. Personal user builds a card -> visible in /dashboard/cards/, NOT in /enterprise-admin/cards/.
+        2. Enterprise CEO/team builds cards -> visible in /enterprise-admin/cards/, NOT in /dashboard/cards/.
+        3. Leads submitted to Personal cards appear in /dashboard/leads/ & /dashboard/contacts/, NOT in /enterprise-admin/leads/.
+        4. Leads submitted to Enterprise cards appear in /enterprise-admin/leads/, NOT in /dashboard/leads/ & /dashboard/contacts/.
+        5. QR codes (/dashboard/qr-codes/) list only personal cards.
+        """
+        admin = User.objects.create_superuser('dash_seg_admin', 'seg_admin@brandnest.io', 'SegAdminPass123!')
+        self.client.force_login(admin)
+
+        # 1. Create a Personal User and Personal Card
+        personal_user = User.objects.create_user('john_freelance', 'john@freelance.org', 'JohnPass123!')
+        UserPlan.objects.create(
+            user=personal_user,
+            plan_type='personal',
+            plan_name='Personal Pro Digital (Yearly)',
+            total_paid=499
+        )
+        personal_card = BusinessCard.objects.create(
+            user=personal_user,
+            business_name='John Photo Studio',
+            owner_name='John Doe',
+            email='john@freelance.org',
+            views_count=15,
+            layout_config={
+                'payment_receipt': {'amount': 499, 'plan': 'Personal Pro Digital (Yearly)'}
+            }
+        )
+
+        # 2. Create an Enterprise Company, CEO, and Enterprise Card
+        company = EnterpriseCompany.objects.create(name='Acme Robotics Corp', email='corp@acmerobotics.com')
+        ent_ceo = User.objects.create_user('acme_ceo', 'ceo@acmerobotics.com', 'AcmeCeoPass123!')
+        UserPlan.objects.create(
+            user=ent_ceo,
+            plan_type='enterprise',
+            is_ceo=True,
+            company_name='Acme Robotics Corp',
+            card_limit=10,
+            total_paid=4499
+        )
+        enterprise_card = BusinessCard.objects.create(
+            user=ent_ceo,
+            enterprise_company=company,
+            business_name='Acme Robotics Corp',
+            owner_name='Dr. Elena Vance',
+            email='elena@acmerobotics.com',
+            views_count=50,
+            layout_config={
+                'payment_receipt': {'amount': 4499, 'plan': 'Acme Robotics Corp Enterprise Corporate Plan'}
+            }
+        )
+
+        # 3. Create Leads for each card
+        personal_lead = CardLead.objects.create(
+            card=personal_card,
+            name='Sarah Client',
+            email='sarah@wedding.com',
+            message='Need photography quote'
+        )
+        enterprise_lead = CardLead.objects.create(
+            card=enterprise_card,
+            name='Procurement Officer',
+            email='buyer@megacorp.com',
+            message='Interested in bulk enterprise contract'
+        )
+
+        # === VERIFY PERSONAL SUPER ADMIN DASHBOARD ===
+        # A. Personal Cards page (/dashboard/cards/)
+        res_p_cards = self.client.get(reverse('dashboard_cards'))
+        self.assertEqual(res_p_cards.status_code, 200)
+        self.assertContains(res_p_cards, 'John Photo Studio')
+        self.assertContains(res_p_cards, 'John Doe')
+        self.assertNotContains(res_p_cards, 'Acme Robotics Corp')
+        self.assertNotContains(res_p_cards, 'Dr. Elena Vance')
+
+        # B. Personal QR Codes page (/dashboard/qr-codes/)
+        res_p_qr = self.client.get(reverse('dashboard_qr_codes'))
+        self.assertEqual(res_p_qr.status_code, 200)
+        self.assertContains(res_p_qr, 'John Photo Studio')
+        self.assertNotContains(res_p_qr, 'Acme Robotics Corp')
+
+        # C. Personal Leads page (/dashboard/leads/)
+        res_p_leads = self.client.get(reverse('dashboard_leads'))
+        self.assertEqual(res_p_leads.status_code, 200)
+        self.assertContains(res_p_leads, 'Sarah Client')
+        self.assertNotContains(res_p_leads, 'Procurement Officer')
+
+        # D. Personal Contacts page (/dashboard/contacts/)
+        res_p_contacts = self.client.get(reverse('dashboard_contacts'))
+        self.assertEqual(res_p_contacts.status_code, 200)
+        self.assertContains(res_p_contacts, 'Sarah Client')
+        self.assertNotContains(res_p_contacts, 'Procurement Officer')
+
+        # E. Personal Overview (/dashboard/overview/)
+        res_p_overview = self.client.get(reverse('dashboard_overview'))
+        self.assertEqual(res_p_overview.status_code, 200)
+        self.assertContains(res_p_overview, 'John Photo Studio')
+        self.assertNotContains(res_p_overview, 'Acme Robotics Corp')
+
+        # === VERIFY ENTERPRISE SUPER ADMIN DASHBOARD ===
+        # A. Enterprise Cards page (/enterprise-admin/cards/)
+        res_e_cards = self.client.get(reverse('enterprise_admin_cards'))
+        self.assertEqual(res_e_cards.status_code, 200)
+        self.assertContains(res_e_cards, 'Acme Robotics Corp')
+        self.assertContains(res_e_cards, 'Dr. Elena Vance')
+        self.assertNotContains(res_e_cards, 'John Photo Studio')
+        self.assertNotContains(res_e_cards, 'John Doe')
+
+        # B. Enterprise Leads page (/enterprise-admin/leads/)
+        res_e_leads = self.client.get(reverse('enterprise_admin_leads'))
+        self.assertEqual(res_e_leads.status_code, 200)
+        self.assertContains(res_e_leads, 'Procurement Officer')
+        self.assertNotContains(res_e_leads, 'Sarah Client')
+
+    def test_personal_card_nfc_upgrade_flow(self):
+        """
+        Verify that a personal user with a digital-only card can:
+        1. View the NFC upgrade banner and preview/customizer in edit mode.
+        2. Successfully submit an upgrade payment with custom NFC specs.
+        3. Upon payment, nfc_card is marked ordered, and order appears in Personal Super Admin NFC dashboard.
+        4. The order does NOT appear in Enterprise Super Admin NFC dashboard.
+        """
+        user = User.objects.create_user(username='upgrade_user', password='password123', email='upgrade@example.com')
+        card = BusinessCard.objects.create(
+            user=user,
+            business_name='Upgrade Digital Tech',
+            owner_name='Vikram Seth',
+            slug='upgrade-digital-tech',
+            card_id='c_upgrade_01',
+            email='upgrade@example.com',
+            layout_config={
+                'payment_receipt': {
+                    'plan': 'Personal Pro Digital (Yearly)',
+                    'amount': 499,
+                    'status': 'captured',
+                }
+            }
+        )
+        self.client.login(username='upgrade_user', password='password123')
+
+        # 1. Access edit page: should contain the NFC upgrade option & preview button
+        edit_url = reverse('card_edit', kwargs={'card_id': card.card_id})
+        res_edit = self.client.get(edit_url)
+        self.assertEqual(res_edit.status_code, 200)
+        self.assertContains(res_edit, 'PHYSICAL HARDWARE UPGRADE')
+        self.assertContains(res_edit, 'Preview &amp; Customize NFC')
+        self.assertContains(res_edit, 'Order NFC Card')
+
+        # 2. Submit NFC Hardware Upgrade with Razorpay payment
+        upgrade_data = {
+            'business_name': 'Upgrade Digital Tech',
+            'owner_name': 'Vikram Seth',
+            'email': 'upgrade@example.com',
+            'phone': '9876543210',
+            'razorpay_payment_id': 'pay_demo_upgrade_9999',
+            'razorpay_amount': '500',
+            'razorpay_method': 'UPI (Fast Pay)',
+            'nfc_ordered': 'true',
+            'nfc_theme': 'titanium_blue',
+            'nfc_foil': 'gold',
+            'nfc_name': 'Vikram Seth',
+            'nfc_designation': 'CTO & Co-Founder',
+        }
+        res_post = self.client.post(edit_url, upgrade_data, follow=True)
+        self.assertEqual(res_post.status_code, 200)
+
+        card.refresh_from_db()
+        nfc_cfg = (card.layout_config or {}).get('nfc_card', {})
+        self.assertTrue(nfc_cfg.get('ordered'))
+        self.assertEqual(nfc_cfg.get('theme'), 'titanium_blue')
+        self.assertEqual(nfc_cfg.get('foil'), 'gold')
+        self.assertEqual(nfc_cfg.get('designation'), 'CTO & Co-Founder')
+
+        # 3. Verify in Personal Super Admin Dashboard
+        admin_user = User.objects.create_superuser(username='superadmin_nfc', password='password123', email='admin@brandnest.in')
+        self.client.login(username='superadmin_nfc', password='password123')
+        session = self.client.session
+        session['dashboard_admin_logged_in'] = True
+        session.save()
+
+        res_p_nfc = self.client.get(reverse('dashboard_nfc'))
+        self.assertEqual(res_p_nfc.status_code, 200)
+        self.assertContains(res_p_nfc, 'Upgrade Digital Tech')
+        self.assertContains(res_p_nfc, 'c_upgrade_01')
+
+        # 4. Verify NOT in Enterprise Super Admin Dashboard
+        res_e_nfc = self.client.get(reverse('enterprise_admin_nfc_orders'))
+        self.assertEqual(res_e_nfc.status_code, 200)
+        self.assertNotContains(res_e_nfc, 'Upgrade Digital Tech')
+        self.assertNotContains(res_e_nfc, 'c_upgrade_01')
+
+    def test_wallet_pass_qr_code_sync_with_card(self):
+        """
+        Verify that the wallet pass QR code accurately mirrors the business card's QR code and link.
+        """
+        user = User.objects.create_user(username='wallet_user', password='password123', email='wallet@example.com')
+        card = BusinessCard.objects.create(
+            user=user,
+            business_name='Apex Design Lab',
+            owner_name='Rahul Sharma',
+            slug='apex-design-lab',
+            card_id='c_apex_01',
+            email='rahul@apex.com'
+        )
+        self.client.login(username='wallet_user', password='password123')
+
+        res = self.client.get(reverse('card_edit', kwargs={'card_id': card.card_id}))
+        self.assertEqual(res.status_code, 200)
+        self.assertIn('qr_data_uri', res.context)
+        self.assertIn('share_url', res.context)
+        self.assertTrue(len(res.context['qr_data_uri']) > 0)
+        self.assertIn('apex-design-lab', res.context['share_url'])
+        self.assertContains(res, 'apex-design-lab')
+        self.assertContains(res, 'walletQrImg')
+
+    def test_super_admin_new_business_dashboards(self):
+        """
+        Verify that both Personal and Enterprise Super Admin dashboards provide the
+        New Business sections displaying newly created cards and NFC hardware orders.
+        """
+        p_user = User.objects.create_user(username='p_client_nb', password='password123', email='client@personal.com')
+        p_card = BusinessCard.objects.create(
+            user=p_user,
+            business_name='Personal Studio Pro',
+            owner_name='Aditi Rao',
+            slug='personal-studio-pro',
+            card_id='c_p_nb_01',
+            email='client@personal.com',
+            layout_config={
+                'payment_receipt': {'plan': 'Personal Pro + Physical NFC Card (Yearly)', 'amount': 999},
+                'nfc_card': {'ordered': True, 'theme': 'obsidian_black', 'status': 'Ready for Dispatch'}
+            }
+        )
+
+        company = EnterpriseCompany.objects.create(
+            name='Titan Global Tech',
+            email='ceo@titan.com',
+            head_name='Vikram Titan',
+            card_quota=10
+        )
+        e_user = User.objects.create_user(username='e_emp_nb', password='password123', email='emp@titan.com')
+        e_card = BusinessCard.objects.create(
+            user=e_user,
+            enterprise_company=company,
+            business_name='Titan Global Tech',
+            owner_name='Siddharth Titan',
+            slug='siddharth-titan',
+            card_id='c_e_nb_01',
+            email='emp@titan.com',
+            layout_config={
+                'payment_receipt': {'plan': 'Titan Global Tech Enterprise Corporate Plan', 'amount': 0},
+                'nfc_card': {'ordered': True, 'theme': 'titanium_blue', 'status': 'Ready for Printing'}
+            }
+        )
+
+        admin_user = User.objects.create_superuser(username='superadmin_nb', password='password123', email='admin_nb@brandnest.in')
+        self.client.login(username='superadmin_nb', password='password123')
+        session = self.client.session
+        session['dashboard_admin_logged_in'] = True
+        session.save()
+
+        # 1. Personal Super Admin Overview
+        res_p_overview = self.client.get(reverse('dashboard_overview'))
+        self.assertEqual(res_p_overview.status_code, 200)
+        self.assertContains(res_p_overview, 'New Business: Recent Cards &amp; NFC Orders')
+        self.assertContains(res_p_overview, 'Personal Studio Pro')
+        self.assertContains(res_p_overview, 'Aditi Rao')
+        self.assertNotContains(res_p_overview, 'Titan Global Tech')
+        self.assertNotContains(res_p_overview, 'Siddharth Titan')
+
+        # 2. Enterprise Super Admin Overview
+        res_e_overview = self.client.get(reverse('enterprise_admin_overview'))
+        self.assertEqual(res_e_overview.status_code, 200)
+        self.assertContains(res_e_overview, 'New Business: Corporate Cards &amp; Employee NFC Generations')
+        self.assertContains(res_e_overview, 'Titan Global Tech')
+        self.assertContains(res_e_overview, 'Siddharth Titan')
+        self.assertNotContains(res_e_overview, 'Personal Studio Pro')
+        self.assertNotContains(res_e_overview, 'Aditi Rao')
+
+    def test_super_admin_new_nfc_orders_and_print_sheet(self):
+        """
+        Verify that:
+        1. Both Personal (/dashboard/nfc/) and Enterprise (/enterprise-admin/nfc/) dashboards
+           provide a 'New NFC Orders' option/filter that isolates unfulfilled orders ready for printing.
+        2. Super admin can click to view new NFC orders and directly generate/print CR80 print sheets.
+        3. Strict Personal vs Enterprise isolation is preserved across NFC consoles.
+        """
+        # Create Personal User Cards
+        p_user = User.objects.create_user(username='p_nfc_client', password='password123', email='client@pers.in')
+        p_card_new = BusinessCard.objects.create(
+            user=p_user,
+            business_name='Aura Innovations',
+            owner_name='Kabir Sharma',
+            slug='kabir-aura',
+            card_id='c_p_nfc_new_01',
+            email='kabir@aura.in',
+            layout_config={
+                'payment_receipt': {'plan': 'Business Card + Smart NFC Card', 'amount': 999},
+                'nfc_card': {'ordered': True, 'theme': 'obsidian_black', 'foil': 'gold', 'status': 'Ready for Printing & Dispatch'}
+            }
+        )
+        p_card_shipped = BusinessCard.objects.create(
+            user=p_user,
+            business_name='Aura Shipped Lab',
+            owner_name='Kabir Past',
+            slug='kabir-past',
+            card_id='c_p_nfc_shipped_02',
+            email='kabir@aura.in',
+            layout_config={
+                'payment_receipt': {'plan': 'Business Card + Smart NFC Card', 'amount': 999},
+                'nfc_card': {'ordered': True, 'theme': 'pearl_white', 'foil': 'silver', 'status': 'Shipped'}
+            }
+        )
+
+        # Create Enterprise Company & Cards
+        company = EnterpriseCompany.objects.create(
+            name='Vertex Aerospace',
+            email='admin@vertex.com',
+            head_name='Meera Vertex',
+            card_quota=20
+        )
+        e_user = User.objects.create_user(username='e_nfc_client', password='password123', email='emp@vertex.com')
+        e_card_new = BusinessCard.objects.create(
+            user=e_user,
+            enterprise_company=company,
+            business_name='Vertex Aerospace',
+            owner_name='Dev Mehra',
+            slug='dev-vertex',
+            card_id='c_e_nfc_new_03',
+            email='emp@vertex.com',
+            layout_config={
+                'payment_receipt': {'plan': 'Vertex Aerospace Enterprise Plan', 'amount': 0},
+                'nfc_card': {'ordered': True, 'theme': 'titanium_blue', 'status': 'Order Placed'}
+            }
+        )
+        e_card_delivered = BusinessCard.objects.create(
+            user=e_user,
+            enterprise_company=company,
+            business_name='Vertex Aerospace',
+            owner_name='Ananya Old',
+            slug='ananya-vertex',
+            card_id='c_e_nfc_del_04',
+            email='emp@vertex.com',
+            layout_config={
+                'payment_receipt': {'plan': 'Vertex Aerospace Enterprise Plan', 'amount': 0},
+                'nfc_card': {'ordered': True, 'theme': 'royal_gold', 'status': 'Delivered'}
+            }
+        )
+
+        # Admin login
+        admin = User.objects.create_superuser(username='super_nfc_boss', password='password123', email='boss@brandnest.in')
+        self.client.login(username='super_nfc_boss', password='password123')
+        session = self.client.session
+        session['dashboard_admin_logged_in'] = True
+        session.save()
+
+        # 1. Personal NFC Dashboard - All vs New NFC Orders
+        p_nfc_res = self.client.get(reverse('dashboard_nfc'))
+        self.assertEqual(p_nfc_res.status_code, 200)
+        self.assertContains(p_nfc_res, 'New NFC Orders')
+        self.assertContains(p_nfc_res, 'Aura Innovations')
+        self.assertContains(p_nfc_res, 'Aura Shipped Lab')
+        self.assertNotContains(p_nfc_res, 'Vertex Aerospace')
+
+        # Filter ?filter=new on Personal
+        p_nfc_new_res = self.client.get(reverse('dashboard_nfc') + '?filter=new')
+        self.assertEqual(p_nfc_new_res.status_code, 200)
+        self.assertContains(p_nfc_new_res, 'Aura Innovations')
+        self.assertContains(p_nfc_new_res, 'NEW NFC ORDER')
+        self.assertContains(p_nfc_new_res, 'Print Sheet &rarr;')
+        self.assertNotContains(p_nfc_new_res, 'Aura Shipped Lab')
+        self.assertNotContains(p_nfc_new_res, 'Vertex Aerospace')
+
+        # 2. Enterprise NFC Dashboard - All vs New NFC Orders
+        e_nfc_res = self.client.get(reverse('enterprise_admin_nfc_orders'))
+        self.assertEqual(e_nfc_res.status_code, 200)
+        self.assertContains(e_nfc_res, 'New NFC Orders')
+        self.assertContains(e_nfc_res, 'Dev Mehra')
+        self.assertContains(e_nfc_res, 'Ananya Old')
+        self.assertNotContains(e_nfc_res, 'Aura Innovations')
+
+        # Filter ?filter=new on Enterprise
+        e_nfc_new_res = self.client.get(reverse('enterprise_admin_nfc_orders') + '?filter=new')
+        self.assertEqual(e_nfc_new_res.status_code, 200)
+        self.assertContains(e_nfc_new_res, 'Dev Mehra')
+        self.assertContains(e_nfc_new_res, 'NEW NFC ORDER')
+        self.assertContains(e_nfc_new_res, 'Print Sheet &rarr;')
+        self.assertNotContains(e_nfc_new_res, 'Ananya Old')
+        self.assertNotContains(e_nfc_new_res, 'Aura Innovations')
+
+        # 3. Print Sheet Generation for workshop
+        sheet_res = self.client.get(reverse('enterprise_admin_nfc_print_sheet', kwargs={'card_id': p_card_new.card_id}))
+        self.assertEqual(sheet_res.status_code, 200)
+        self.assertContains(sheet_res, 'BrandNest Hardware Fulfillment')
+        self.assertContains(sheet_res, 'CR80 FORM FACTOR')
+        self.assertContains(sheet_res, 'Kabir Sharma')
+        self.assertContains(sheet_res, 'c_p_nfc_new_01')
+        self.assertContains(sheet_res, reverse('dashboard_nfc'))
+
+        # Check ?autoprint=1 triggers window.print()
+        sheet_autoprint = self.client.get(reverse('enterprise_admin_nfc_print_sheet', kwargs={'card_id': p_card_new.card_id}) + '?autoprint=1')
+        self.assertEqual(sheet_autoprint.status_code, 200)
+        self.assertContains(sheet_autoprint, 'window.print()')
+
+        # 4. Verify order moves across tabs when status is updated:
+        # Step A: Update to 'Printing & Engraving' -> Moves from New to 'In Production'
+        post_prod = self.client.post(
+            reverse('dashboard_nfc_status_update', kwargs={'card_id': p_card_new.card_id}),
+            {'status': 'Printing & Engraving', 'tracking_info': '', 'next': reverse('dashboard_nfc') + '?filter=new'}
+        )
+        self.assertEqual(post_prod.status_code, 302)
+
+        # After updating, Aura Innovations is NO LONGER in ?filter=new (New NFC Orders)
+        p_new_after = self.client.get(reverse('dashboard_nfc') + '?filter=new')
+        self.assertEqual(len(p_new_after.context['orders']), 0)
+        self.assertEqual(p_new_after.context['stats']['new_orders'], 0)
+        self.assertEqual(p_new_after.context['stats']['in_production'], 1)
+
+        # It is now visible in ?status=Printing+%26+Engraving (In Production)
+        p_prod_tab = self.client.get(reverse('dashboard_nfc') + '?status=Printing+%26+Engraving')
+        self.assertEqual(len(p_prod_tab.context['orders']), 1)
+        self.assertEqual(p_prod_tab.context['orders'][0].business_name, 'Aura Innovations')
+        self.assertContains(p_prod_tab, 'Printing &amp; Engraving')
+
+        # Step B: Update to 'Ready for Dispatch' -> Moves to 'Ready for Dispatch' tab
+        post_ready = self.client.post(
+            reverse('dashboard_nfc_status_update', kwargs={'card_id': p_card_new.card_id}),
+            {'status': 'Ready for Dispatch', 'tracking_info': ''}
+        )
+        self.assertEqual(post_ready.status_code, 302)
+        p_ready_tab = self.client.get(reverse('dashboard_nfc') + '?status=Ready+for+Dispatch')
+        self.assertEqual(len(p_ready_tab.context['orders']), 1)
+        self.assertEqual(p_ready_tab.context['orders'][0].business_name, 'Aura Innovations')
+
+        # Step C: Update to 'Shipped' with tracking -> Moves to 'Shipped' tab
+        post_ship = self.client.post(
+            reverse('dashboard_nfc_status_update', kwargs={'card_id': p_card_new.card_id}),
+            {'status': 'Shipped', 'tracking_info': 'BlueDart AW12345678'}
+        )
+        self.assertEqual(post_ship.status_code, 302)
+        p_shipped_tab = self.client.get(reverse('dashboard_nfc') + '?status=Shipped')
+        self.assertIn(p_card_new.card_id, [c.card_id for c in p_shipped_tab.context['orders']])
+        self.assertContains(p_shipped_tab, 'BlueDart AW12345678')
+
+        # Step D: Update to 'Delivered' -> Moves to 'Delivered' tab
+        post_del = self.client.post(
+            reverse('dashboard_nfc_status_update', kwargs={'card_id': p_card_new.card_id}),
+            {'status': 'Delivered', 'tracking_info': 'Delivered to recipient'}
+        )
+        self.assertEqual(post_del.status_code, 302)
+        p_del_tab = self.client.get(reverse('dashboard_nfc') + '?status=Delivered')
+        self.assertEqual(len(p_del_tab.context['orders']), 1)
+        self.assertEqual(p_del_tab.context['orders'][0].business_name, 'Aura Innovations')
+
+    def test_card_subdomain_urls_and_routing(self):
+        """
+        Verify that:
+        1. When running on local host machine / unhosted Django server, card URLs are formatted
+           as local server IP subdomains: e.g. http://raj.192.168.1.34:8000/
+        2. When hosted on a domain (CARD_BASE_DOMAIN set), card URLs are formatted as
+           https://raj.mybrand.com/
+        3. SubdomainRoutingMiddleware automatically routes requests on both IP-subdomains
+           (raj.192.168.1.34) and domain-subdomains (raj.mybrand.com) directly to the card.
+        4. System reserved subdomains (e.g. www) pass through to the main application.
+        5. Unknown subdomains render a clean 404 page.
+        """
+        from apps.frontend.views import get_card_subdomain_url, get_shareable_url, get_lan_ip
+        from django.test import RequestFactory, override_settings
+
+        rf = RequestFactory()
+        user = User.objects.create_user(username='subdomain_user', password='password123', email='raj@test.com')
+        card = BusinessCard.objects.create(
+            user=user,
+            business_name='Raj Luxury Studio',
+            owner_name='Raj Malhotra',
+            slug='raj',
+            card_id='c_raj_sub_01',
+            email='raj@test.com',
+            phone='+919876543210',
+            layout_config={'payment_receipt': {'plan': 'Business Card', 'amount': 499}}
+        )
+
+        expected_ip = get_lan_ip() or '127.0.0.1'
+        expected_local_url = f"http://raj.{expected_ip}.nip.io:8000/"
+
+        # 1. Verify Local Server URL Generation (Unhosted Mode with nip.io)
+        subdomain_url = get_card_subdomain_url(card.slug)
+        self.assertEqual(subdomain_url, expected_local_url)
+        self.assertEqual(card.subdomain_url, expected_local_url)
+        self.assertEqual(card.share_url, expected_local_url)
+
+        req_local = rf.get('/card/raj/', HTTP_HOST='192.168.1.34:8000')
+        share_url_local = get_shareable_url(req_local, f'/card/{card.slug}/')
+        self.assertEqual(share_url_local, 'http://raj.192.168.1.34.nip.io:8000/')
+
+        # 2. Verify Card Preview Page displays the local server link
+        self.client.force_login(user)
+        preview_res = self.client.get(reverse('card_preview', kwargs={'card_id': card.card_id}), HTTP_HOST='192.168.1.34:8000')
+        self.assertEqual(preview_res.status_code, 200)
+        self.assertContains(preview_res, 'http://raj.192.168.1.34.nip.io:8000/')
+        self.assertContains(preview_res, 'Shareable Subdomain Link:')
+
+        # 3. Verify Subdomain Routing Middleware on nip.io (http://raj.192.168.1.34.nip.io:8000/)
+        sub_res_nip = self.client.get('/', HTTP_HOST='raj.192.168.1.34.nip.io:8000')
+        self.assertEqual(sub_res_nip.status_code, 200)
+        self.assertContains(sub_res_nip, 'Raj Luxury Studio')
+        self.assertContains(sub_res_nip, 'Raj Malhotra')
+
+        # Subdomain direct QR code request on nip.io: http://raj.192.168.1.34.nip.io:8000/qr.png
+        sub_qr_nip = self.client.get('/qr.png', HTTP_HOST='raj.192.168.1.34.nip.io:8000')
+        self.assertEqual(sub_qr_nip.status_code, 200)
+        self.assertEqual(sub_qr_nip['Content-Type'], 'image/png')
+
+        # 4. Verify Production Domain Hosting Mode (e.g. CARD_BASE_DOMAIN='mybrand.com')
+        with override_settings(CARD_BASE_DOMAIN='mybrand.com'):
+            prod_url = get_card_subdomain_url(card.slug)
+            self.assertEqual(prod_url, 'https://raj.mybrand.com/')
+
+            sub_res_prod = self.client.get('/', HTTP_HOST='raj.mybrand.com')
+            self.assertEqual(sub_res_prod.status_code, 200)
+            self.assertContains(sub_res_prod, 'Raj Luxury Studio')
+
+        # 5. Reserved subdomain (e.g. www.192.168.1.34:8000) routes to landing view
+        www_res = self.client.get('/', HTTP_HOST='www.192.168.1.34:8000')
+        self.assertEqual(www_res.status_code, 200)
+        self.assertContains(www_res, 'BrandNest')
+
+        # 6. Non-existent subdomain routes to 404 Card Not Found
+        missing_res = self.client.get('/', HTTP_HOST='unknown-person.192.168.1.34:8000')
+        self.assertEqual(missing_res.status_code, 404)
+        self.assertContains(missing_res, 'Card Not Found', status_code=404)
+        self.assertContains(missing_res, 'unknown-person.192.168.1.34:8000', status_code=404)
+
+    def test_nfc_order_and_status_dropdown_email_notifications_flow(self):
+        """
+        Verify the complete NFC email notification flow across both Personal and Enterprise dashboards:
+        1. When user places/pays for an NFC card, they receive an 'Order Placed' confirmation email to their signup email.
+        2. In Personal Super Admin (/dashboard/nfc/), selecting each status from the dropdown:
+           - 'Order Placed'
+           - 'Printing & Engraving'
+           - 'Ready for Dispatch'
+           - 'Shipped'
+           - 'Delivered'
+           and clicking 'Save Status & Notify Client' sends the user an automated status update email to their signup email.
+        3. In Enterprise Super Admin (/enterprise-admin/nfc-orders/), selecting each status from the dropdown
+           and clicking 'Save Status & Notify Client' sends the enterprise cardholder/employee an automated status email.
+        """
+        from django.core import mail
+        from apps.cards.notifications import get_user_notification_email, get_user_notification_recipients
+
+        # Setup Super Admin
+        admin = User.objects.create_superuser(username='super_nfc_manager', email='admin_nfc@brandnest.io', password='AdminPass123!')
+
+        # --- A. PERSONAL NFC CARD FLOW ---
+        personal_user = User.objects.create_user(
+            username='personal_nfc_user',
+            email='pers.user.signup@gmail.com',
+            password='UserPass123!',
+            first_name='Kavya',
+            last_name='Nair'
+        )
+
+        # 1. User orders Personal NFC card through card_builder
+        self.client.force_login(personal_user)
+        mail.outbox.clear()
+
+        nfc_payload = {
+            'business_name': 'Kavya Fine Jewels',
+            'owner_name': 'Kavya Nair',
+            'role_title': 'Lead Jewelry Designer',
+            'email': 'kavya.jewels@business.com',  # Card business email
+            'phone': '+91 9876543210',
+            'razorpay_payment_id': 'pay_demo_kavya_nfc_999',
+            'razorpay_amount': '999',
+            'nfc_ordered': 'true',
+            'nfc_theme': 'obsidian_black',
+            'nfc_foil': 'gold',
+            'nfc_name': 'Kavya Nair',
+            'nfc_designation': 'Lead Jewelry Designer',
+            'nfc_company_name': 'Kavya Fine Jewels',
+            'nfc_website': 'www.kavyajewels.com',
+        }
+        res_order = self.client.post(reverse('card_builder'), nfc_payload)
+        self.assertEqual(res_order.status_code, 302)
+
+        p_card = BusinessCard.objects.filter(user=personal_user).first()
+        self.assertIsNotNone(p_card)
+
+        # Verify email recipient resolution prioritizes signup/login email (pers.user.signup@gmail.com)
+        self.assertEqual(get_user_notification_email(p_card), 'pers.user.signup@gmail.com')
+        recipients = get_user_notification_recipients(p_card)
+        self.assertIn('pers.user.signup@gmail.com', recipients)
+
+        # Verify 'Order Placed' confirmation email was sent to user's signup email
+        client_order_emails = [m for m in mail.outbox if 'pers.user.signup@gmail.com' in m.to]
+        self.assertTrue(len(client_order_emails) > 0)
+        order_msg = client_order_emails[0]
+        self.assertIn('Order Placed', order_msg.subject)
+        self.assertIn('Physical Contactless NFC Card Confirmed', order_msg.subject)
+        self.assertIn('Kavya Nair', order_msg.body)
+        self.assertIn('Kavya Fine Jewels', order_msg.body)
+        self.assertIn('Obsidian Black', order_msg.body)
+        self.assertIn('FULFILLMENT ROADMAP:', order_msg.body)
+
+        # 2. Super Admin logs in and updates status across all 5 dropdown options
+        self.client.force_login(admin)
+
+        dropdown_statuses = [
+            ('Printing & Engraving', 'UV laser bed running at facility'),
+            ('Ready for Dispatch', 'Packed in velvet gift sleeve'),
+            ('Shipped', 'BlueDart Express Tracking: BD98234120'),
+            ('Delivered', 'Handed over at doorstep'),
+            ('Order Placed', 'Re-queued upon client revision request'),
+        ]
+
+        for status_val, track_val in dropdown_statuses:
+            mail.outbox.clear()
+            update_res = self.client.post(
+                reverse('dashboard_nfc_status_update', kwargs={'card_id': p_card.card_id}),
+                {
+                    'status': status_val,
+                    'tracking_info': track_val,
+                }
+            )
+            self.assertEqual(update_res.status_code, 302)
+
+            # Check database updated
+            p_card.refresh_from_db()
+            self.assertEqual(p_card.layout_config['nfc_card']['status'], status_val)
+            self.assertEqual(p_card.layout_config['nfc_card']['tracking_info'], track_val)
+
+            # Check email was sent to user's signup/login email
+            self.assertGreaterEqual(len(mail.outbox), 1)
+            status_msg = [m for m in mail.outbox if 'pers.user.signup@gmail.com' in m.to][0]
+            self.assertIn(status_val, status_msg.subject)
+            self.assertIn(status_val, status_msg.body)
+            self.assertIn('Kavya Fine Jewels', status_msg.subject)
+            if track_val:
+                self.assertIn(track_val, status_msg.body)
+
+        # --- B. ENTERPRISE NFC CARD FLOW ---
+        # Setup Enterprise Company & Employee Card
+        ent_comp = EnterpriseCompany.objects.create(
+            name='Vertex Global Tech',
+            head_name='Vikram Singhania',
+            email='vikram.ceo@vertex.com',
+            card_quota=10
+        )
+        emp_user = User.objects.create_user(
+            username='emp_tanya',
+            email='tanya.sharma.login@gmail.com',
+            password='EmpPass123!',
+            first_name='Tanya',
+            last_name='Sharma'
+        )
+        emp_card = BusinessCard.objects.create(
+            user=emp_user,
+            business_name='Vertex Global Tech',
+            owner_name='Tanya Sharma',
+            card_id='c_ent_tanya_nfc_01',
+            enterprise_company=ent_comp,
+            layout_config={
+                'nfc_card': {
+                    'ordered': True,
+                    'theme': 'pearl_white',
+                    'foil': 'silver',
+                    'status': 'Order Placed',
+                    'name': 'Tanya Sharma',
+                    'designation': 'VP Product Architecture',
+                    'company_name': 'Vertex Global Tech',
+                }
+            }
+        )
+
+        for status_val, track_val in dropdown_statuses:
+            mail.outbox.clear()
+            ent_update_res = self.client.post(
+                reverse('enterprise_admin_nfc_status_update', kwargs={'card_id': emp_card.card_id}),
+                {
+                    'status': status_val,
+                    'tracking_info': track_val,
+                }
+            )
+            self.assertEqual(ent_update_res.status_code, 302)
+
+            emp_card.refresh_from_db()
+            self.assertEqual(emp_card.layout_config['nfc_card']['status'], status_val)
+            self.assertEqual(emp_card.layout_config['nfc_card']['tracking_info'], track_val)
+
+            # Check email was dispatched to employee's signup/login email
+            self.assertGreaterEqual(len(mail.outbox), 1)
+            ent_msg = [m for m in mail.outbox if 'tanya.sharma.login@gmail.com' in m.to][0]
+            self.assertIn(status_val, ent_msg.subject)
+            self.assertIn(status_val, ent_msg.body)
+            self.assertIn('Vertex Global Tech', ent_msg.subject)
+            if track_val:
+                self.assertIn(track_val, ent_msg.body)
+
+
+
+
+

@@ -470,7 +470,7 @@
                             <a href="{% url 'card_edit' card_id=c.card_id %}" class="btn btn-sm btn-outline-primary rounded-pill px-3" title="Edit in Builder">
                                 <i class="bi bi-pencil me-1"></i> Edit
                             </a>
-                            <a href="{% url 'card_standalone' slug=c.slug %}" target="_blank" class="btn btn-sm btn-outline-dark rounded-pill px-2" title="Public Standalone Card">
+                            <a href="{{ c.subdomain_url }}" target="_blank" class="btn btn-sm btn-outline-dark rounded-pill px-2" title="Public Standalone Subdomain ({{ c.subdomain_url }})">
                                 <i class="bi bi-box-arrow-up-right"></i>
                             </a>
                             <a href="{% url 'card_delete' card_id=c.card_id %}" class="btn btn-sm btn-outline-danger rounded-pill px-2 ms-auto"

@@ -513,9 +513,9 @@ footer {
   <nav class="nav" aria-label="Main Navigation">
     <a href="{% url 'landing' %}" class="logo"><span class="mark"></span>BrandNest</a>
     <ul>
-      <li><a href="{% url 'landing' %}#modules">Modules</a></li>
+      <li><a href="{% url 'landing' %}">Home</a></li>
       <li><a href="{% url 'card_builder' %}">Business Card</a></li>
-      <li><a href="{% url 'website_builder' %}">Website Builder</a></li>
+      <li><a href="{% url 'card_choose_plan' %}">NFC Cards</a></li>
     </ul>
     <a class="pill sm light" href="{% url 'signup' %}{% if next %}?next={{ next|urlencode }}{% endif %}">Don't have an account? <b>Sign Up</b></a>
   </nav>
@@ -531,7 +531,7 @@ footer {
           <span class="showcase-dot"></span> Welcome Back
         </div>
         <h1 class="auth-headline">
-          Manage your cards & websites <b>all in one place.</b>
+          Manage your digital &amp; NFC cards <b>all in one place.</b>
         </h1>
         <p class="auth-sub">
           Log in to access your digital business cards, view live analytics, customize brand themes, and manage domain routing.

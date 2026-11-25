@@ -97,7 +97,7 @@
 
   <!-- Screen Topbar with Print Button -->
   <div class="sheet-container mb-3 no-print p-3 d-flex align-items-center justify-content-between">
-    <a href="{% url 'enterprise_admin_nfc_orders' %}" class="btn btn-sm btn-outline-secondary rounded-pill px-3">
+    <a href="{{ back_url|default:'javascript:history.back()' }}" class="btn btn-sm btn-outline-secondary rounded-pill px-3">
       &larr; Back to NFC Orders
     </a>
     <div class="d-flex gap-2">
@@ -271,6 +271,16 @@
       <span>Dispatch Packing: ____________________</span>
     </div>
   </div>
+
+  {% if autoprint %}
+  <script>
+    window.addEventListener('load', function() {
+      setTimeout(function() {
+        window.print();
+      }, 400);
+    });
+  </script>
+  {% endif %}
 
 </body>
 </html>

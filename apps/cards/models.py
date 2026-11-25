@@ -149,8 +149,11 @@ class BusinessCard(models.Model):
     def save(self, *args, **kwargs):
         if not self.card_id:
             self.card_id = f"CARD-{uuid.uuid4().hex[:8].upper()}"
-        if not self.slug:
-            base_slug = slugify(self.business_name) or "business-card"
+
+        # Prefer owner_name (user name) for slug if available, falling back to business_name
+        if not self.slug or self.slug.startswith('business-card'):
+            name_for_slug = (self.owner_name or '').strip() or (self.business_name or '').strip() or "card"
+            base_slug = slugify(name_for_slug) or "card"
             candidate = base_slug
             counter = 1
             while BusinessCard.objects.filter(slug=candidate).exclude(pk=self.pk).exists():
@@ -161,9 +164,14 @@ class BusinessCard(models.Model):
 
     @property
     def share_url(self):
-        if self.domain:
-            return f"https://{self.domain.domain_name}"
-        return f"/card/{self.slug}/"
+        from apps.frontend.views import get_card_subdomain_url
+        if self.domain and self.domain.domain_type == 'custom':
+            return f"https://{self.domain.domain_name}/"
+        return get_card_subdomain_url(self.slug)
+
+    @property
+    def subdomain_url(self):
+        return self.share_url
 
 
 class UserPlan(models.Model):
@@ -389,3 +397,133 @@ class CardAnalyticsEvent(models.Model):
 
     def __str__(self):
         return f"{self.card.business_name} - {self.event_type}"
+
+
+class PlatformPricing(models.Model):
+    """
+    Centralized, Super Admin configurable pricing model for Personal & Enterprise
+    business cards, physical NFC cards, and corporate bundles.
+    """
+    # Personal Plans
+    personal_digital_price = models.PositiveIntegerField(default=499, help_text="Personal Digital Business Card Price (INR)")
+    personal_nfc_price = models.PositiveIntegerField(default=999, help_text="Personal Digital + Physical NFC Card Bundle Price (INR)")
+
+    # Enterprise Digital Bundles
+    enterprise_5_digital_price = models.PositiveIntegerField(default=999, help_text="5 Cards Digital Bundle Price (INR)")
+    enterprise_10_digital_price = models.PositiveIntegerField(default=1799, help_text="10 Cards Digital Bundle Price (INR)")
+    enterprise_15_digital_price = models.PositiveIntegerField(default=2499, help_text="15 Cards Digital Bundle Price (INR)")
+
+    # Enterprise Digital + Physical NFC Bundles
+    enterprise_5_nfc_price = models.PositiveIntegerField(default=2499, help_text="5 Cards + 5 NFC Physical Bundle Price (INR)")
+    enterprise_10_nfc_price = models.PositiveIntegerField(default=4499, help_text="10 Cards + 10 NFC Physical Bundle Price (INR)")
+    enterprise_15_nfc_price = models.PositiveIntegerField(default=5999, help_text="15 Cards + 15 NFC Physical Bundle Price (INR)")
+
+    # Enterprise Top-up per extra card
+    enterprise_extra_card_price = models.PositiveIntegerField(default=199, help_text="Price per additional enterprise card slot (INR)")
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Platform Pricing'
+        verbose_name_plural = 'Platform Pricing'
+
+    def __str__(self):
+        return f"Platform Pricing (Personal: ₹{self.personal_digital_price}/₹{self.personal_nfc_price})"
+
+    @property
+    def personal_nfc_upgrade_price(self):
+        """
+        Price difference to upgrade from Personal Digital Card to Physical NFC Hardware.
+        """
+        return max(0, self.personal_nfc_price - self.personal_digital_price)
+
+    @classmethod
+    def get_pricing(cls):
+        obj, _ = cls.objects.get_or_create(id=1)
+        return obj
+
+    def get_enterprise_bundles(self):
+        """
+        Dynamically returns the list of ENTERPRISE_BUNDLES formatted with current database prices.
+        """
+        return [
+            {
+                'id': '5',
+                'cards': 5,
+                'nfc_cards': 0,
+                'has_nfc': False,
+                'price': self.enterprise_5_digital_price,
+                'per_card': f"{float(self.enterprise_5_digital_price) / 5:.2f}",
+                'team_cards': 4,
+                'title': '5 Business Cards',
+                'badge': 'Starter',
+                'billing_cycle': 'yearly',
+                'meta': 'Includes your own card + 4 team member cards · Yearly Renewable',
+            },
+            {
+                'id': '10',
+                'cards': 10,
+                'nfc_cards': 0,
+                'has_nfc': False,
+                'price': self.enterprise_10_digital_price,
+                'per_card': f"{float(self.enterprise_10_digital_price) / 10:.2f}",
+                'team_cards': 9,
+                'title': '10 Business Cards',
+                'badge': 'Most Popular',
+                'billing_cycle': 'yearly',
+                'meta': 'Includes your own card + 9 team member cards · Yearly Renewable',
+            },
+            {
+                'id': '15',
+                'cards': 15,
+                'nfc_cards': 0,
+                'has_nfc': False,
+                'price': self.enterprise_15_digital_price,
+                'per_card': f"{float(self.enterprise_15_digital_price) / 15:.2f}",
+                'team_cards': 14,
+                'title': '15 Business Cards',
+                'badge': 'Best Value',
+                'billing_cycle': 'yearly',
+                'meta': 'Includes your own card + 14 team member cards · Yearly Renewable',
+            },
+            {
+                'id': '5_nfc',
+                'cards': 5,
+                'nfc_cards': 5,
+                'has_nfc': True,
+                'price': self.enterprise_5_nfc_price,
+                'per_card': f"{float(self.enterprise_5_nfc_price) / 5:.2f}",
+                'team_cards': 4,
+                'title': '5 Business Cards + 5 NFC Cards',
+                'badge': '5 Cards + 5 NFC',
+                'billing_cycle': 'yearly',
+                'meta': 'Includes 5 Digital Cards + 5 Custom Smart NFC Cards with Free Express Delivery · Yearly Renewable',
+            },
+            {
+                'id': '10_nfc',
+                'cards': 10,
+                'nfc_cards': 10,
+                'has_nfc': True,
+                'price': self.enterprise_10_nfc_price,
+                'per_card': f"{float(self.enterprise_10_nfc_price) / 10:.2f}",
+                'team_cards': 9,
+                'title': '10 Business Cards + 10 NFC Cards',
+                'badge': '10 Cards + 10 NFC',
+                'billing_cycle': 'yearly',
+                'meta': 'Includes 10 Digital Cards + 10 Custom Smart NFC Cards with Free Express Delivery · Yearly Renewable',
+            },
+            {
+                'id': '15_nfc',
+                'cards': 15,
+                'nfc_cards': 15,
+                'has_nfc': True,
+                'price': self.enterprise_15_nfc_price,
+                'per_card': f"{float(self.enterprise_15_nfc_price) / 15:.2f}",
+                'team_cards': 14,
+                'title': '15 Business Cards + 15 NFC Cards',
+                'badge': '15 Cards + 15 NFC',
+                'billing_cycle': 'yearly',
+                'meta': 'Includes 15 Digital Cards + 15 Custom Smart NFC Cards with Free Express Delivery · Yearly Renewable',
+            },
+        ]
+

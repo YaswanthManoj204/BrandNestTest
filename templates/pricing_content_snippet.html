@@ -1,0 +1,359 @@
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+  <div>
+    <div class="d-flex align-items-center gap-2 mb-1">
+      <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1 rounded-pill fw-bold" style="font-size:11px;">
+        <i class="bi bi-currency-rupee"></i> Platform Monetization
+      </span>
+      <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1 rounded-pill fw-bold" style="font-size:11px;">
+        <i class="bi bi-broadcast"></i> Live Dynamic Pricing
+      </span>
+    </div>
+    <h1 style="font-size:26px;font-weight:800;color:#0F172A;margin:0 0 4px;">Plan &amp; Card Pricing Management</h1>
+    <p style="font-size:13.5px;color:#64748B;margin:0;">
+      Configure active rates for Personal digital business cards, physical smart NFC cards, and Enterprise corporate bundles. All price changes immediately sync live across the checkout flow, card builder, and client receipts.
+    </p>
+  </div>
+
+  <div class="d-flex gap-2 align-items-center">
+    <button type="button" class="btn btn-outline-secondary rounded-pill px-3 py-2 fw-semibold" onclick="document.getElementById('resetPricingForm').submit()" title="Reset all rates to original system defaults">
+      <i class="bi bi-arrow-counterclockwise me-1"></i> Reset to Defaults
+    </button>
+    <button type="button" class="btn btn-primary rounded-pill px-4 py-2 fw-bold shadow-sm" onclick="document.getElementById('pricingForm').submit()">
+      <i class="bi bi-check2-circle me-1"></i> Save &amp; Publish Prices
+    </button>
+  </div>
+</div>
+
+<!-- Hidden Form for Reset Action -->
+<form method="post" id="resetPricingForm" style="display:none;" onsubmit="return confirm('Are you sure you want to reset all Personal and Enterprise pricing to factory defaults?');">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="reset">
+</form>
+
+<!-- Main Pricing Update Form -->
+<form method="post" id="pricingForm" class="d-flex flex-column gap-4">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="save">
+
+  <!-- Section 1: Personal Use Pricing -->
+  <div class="card border-0 shadow-sm rounded-4 overflow-hidden" style="background:#FFFFFF;border:1px solid #E2E8F0 !important;">
+    <div class="card-header bg-success bg-opacity-10 border-bottom border-success-subtle p-3 px-4 d-flex align-items-center justify-content-between">
+      <div class="d-flex align-items-center gap-2">
+        <div style="width:34px;height:34px;border-radius:10px;background:#10B981;color:#FFFFFF;display:grid;place-items:center;font-size:16px;">
+          <i class="bi bi-person-badge-fill"></i>
+        </div>
+        <div>
+          <h5 class="fw-bold mb-0" style="font-size:16px;color:#0F172A;">1. Personal Use Plans &amp; Physical NFC Card Rates</h5>
+          <small class="text-muted">Charged to individual professionals, freelancers, and entrepreneurs creating their own card.</small>
+        </div>
+      </div>
+      <span class="badge bg-success text-white rounded-pill px-2.5 py-1 fw-bold" style="font-size:11px;">INDIVIDUAL TIERS</span>
+    </div>
+
+    <div class="card-body p-4">
+      <div class="row g-4">
+        <!-- Personal Digital Only -->
+        <div class="col-md-6">
+          <div class="p-3.5 rounded-3 border bg-light bg-opacity-50 h-100">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <label class="form-label fw-bold text-dark mb-0" style="font-size:14px;">
+                <i class="bi bi-phone text-primary me-1"></i> Personal Digital Business Card (Yearly)
+              </label>
+              <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill">Digital Only</span>
+            </div>
+            <p class="text-secondary small mb-3" style="font-size:12px;">
+              Single yearly subscription for interactive web business card, QR code generation, vCard downloads, and inquiry leads.
+            </p>
+
+            <div class="input-group">
+              <span class="input-group-text bg-white fw-bold text-dark" style="font-size:16px;">₹</span>
+              <input type="number" name="personal_digital_price" class="form-control form-control-lg fw-extrabold text-dark" value="{{ pricing.personal_digital_price|default:499 }}" min="0" required>
+              <span class="input-group-text bg-light text-muted small">INR / year</span>
+            </div>
+            <div class="form-text small mt-1 text-muted">Original default: ₹499/year.</div>
+          </div>
+        </div>
+
+        <!-- Personal Digital + Physical Smart NFC Card -->
+        <div class="col-md-6">
+          <div class="p-3.5 rounded-3 border bg-light bg-opacity-50 h-100" style="border-color:#38BDF8 !important;">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <label class="form-label fw-bold text-dark mb-0" style="font-size:14px;">
+                <i class="bi bi-broadcast text-info me-1"></i> Personal Digital Card + Physical NFC Smart Card (Yearly)
+              </label>
+              <span class="badge bg-info-subtle text-info border border-info-subtle rounded-pill">Digital + Hardware</span>
+            </div>
+            <p class="text-secondary small mb-3" style="font-size:12px;">
+              Includes full digital business card plus 1 custom laser-engraved NFC hardware card with free express doorstep delivery.
+            </p>
+
+            <div class="input-group">
+              <span class="input-group-text bg-white fw-bold text-dark" style="font-size:16px;">₹</span>
+              <input type="number" name="personal_nfc_price" class="form-control form-control-lg fw-extrabold text-dark" value="{{ pricing.personal_nfc_price|default:999 }}" min="0" required>
+              <span class="input-group-text bg-light text-muted small">INR / all-inclusive</span>
+            </div>
+            <div class="form-text small mt-1 text-muted">Original default: ₹999/year (Includes custom engraving + express delivery).</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 2: Enterprise Digital Bundles -->
+  <div class="card border-0 shadow-sm rounded-4 overflow-hidden" style="background:#FFFFFF;border:1px solid #E2E8F0 !important;">
+    <div class="card-header bg-primary bg-opacity-10 border-bottom border-primary-subtle p-3 px-4 d-flex align-items-center justify-content-between">
+      <div class="d-flex align-items-center gap-2">
+        <div style="width:34px;height:34px;border-radius:10px;background:#4F46E5;color:#FFFFFF;display:grid;place-items:center;font-size:16px;">
+          <i class="bi bi-buildings"></i>
+        </div>
+        <div>
+          <h5 class="fw-bold mb-0" style="font-size:16px;color:#0F172A;">2. Enterprise Digital Business Card Bundles (Yearly)</h5>
+          <small class="text-muted">Corporate yearly packages for companies issuing digital cards across team members and departments.</small>
+        </div>
+      </div>
+      <span class="badge bg-primary text-white rounded-pill px-2.5 py-1 fw-bold" style="font-size:11px;">ENTERPRISE DIGITAL</span>
+    </div>
+
+    <div class="card-body p-4">
+      <div class="row g-4">
+        <!-- 5 Cards Bundle -->
+        <div class="col-md-4">
+          <div class="p-3.5 rounded-3 border bg-light bg-opacity-50 h-100">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <strong style="font-size:14px;color:#0F172A;">Starter Bundle (5 Cards)</strong>
+              <span class="badge bg-secondary-subtle text-secondary rounded-pill">5 Slots</span>
+            </div>
+            <p class="text-secondary small mb-3" style="font-size:12px;">CEO card + 4 team member cards. Unlimited leads &amp; admin portal.</p>
+            <div class="input-group mb-1">
+              <span class="input-group-text bg-white fw-bold">₹</span>
+              <input type="number" name="enterprise_5_digital_price" class="form-control form-control-lg fw-bold" value="{{ pricing.enterprise_5_digital_price|default:999 }}" min="0" required>
+              <span class="input-group-text bg-light text-muted small">/ year</span>
+            </div>
+            <div class="small text-muted">Per card: <b class="text-dark">₹{{ bundles.0.per_card }}</b>/card/year</div>
+          </div>
+        </div>
+
+        <!-- 10 Cards Bundle -->
+        <div class="col-md-4">
+          <div class="p-3.5 rounded-3 border bg-light bg-opacity-50 h-100" style="border-color:#4F46E5 !important;">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <strong style="font-size:14px;color:#0F172A;">Growth Bundle (10 Cards)</strong>
+              <span class="badge bg-primary rounded-pill">10 Slots</span>
+            </div>
+            <p class="text-secondary small mb-3" style="font-size:12px;">CEO card + 9 team member cards. Team segregation &amp; CRM lead export.</p>
+            <div class="input-group mb-1">
+              <span class="input-group-text bg-white fw-bold">₹</span>
+              <input type="number" name="enterprise_10_digital_price" class="form-control form-control-lg fw-bold" value="{{ pricing.enterprise_10_digital_price|default:1799 }}" min="0" required>
+              <span class="input-group-text bg-light text-muted small">/ year</span>
+            </div>
+            <div class="small text-muted">Per card: <b class="text-dark">₹{{ bundles.1.per_card }}</b>/card/year</div>
+          </div>
+        </div>
+
+        <!-- 15 Cards Bundle -->
+        <div class="col-md-4">
+          <div class="p-3.5 rounded-3 border bg-light bg-opacity-50 h-100">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <strong style="font-size:14px;color:#0F172A;">Scale Bundle (15 Cards)</strong>
+              <span class="badge bg-success-subtle text-success rounded-pill">15 Slots</span>
+            </div>
+            <p class="text-secondary small mb-3" style="font-size:12px;">CEO card + 14 team member cards. Custom domain assignment &amp; support.</p>
+            <div class="input-group mb-1">
+              <span class="input-group-text bg-white fw-bold">₹</span>
+              <input type="number" name="enterprise_15_digital_price" class="form-control form-control-lg fw-bold" value="{{ pricing.enterprise_15_digital_price|default:2499 }}" min="0" required>
+              <span class="input-group-text bg-light text-muted small">/ year</span>
+            </div>
+            <div class="small text-muted">Per card: <b class="text-dark">₹{{ bundles.2.per_card }}</b>/card/year</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 3: Enterprise Digital + Smart NFC Physical Cards Bundles -->
+  <div class="card border-0 shadow-sm rounded-4 overflow-hidden" style="background:#FFFFFF;border:1px solid #E2E8F0 !important;">
+    <div class="card-header bg-info bg-opacity-10 border-bottom border-info-subtle p-3 px-4 d-flex align-items-center justify-content-between">
+      <div class="d-flex align-items-center gap-2">
+        <div style="width:34px;height:34px;border-radius:10px;background:#0284C7;color:#FFFFFF;display:grid;place-items:center;font-size:16px;">
+          <i class="bi bi-broadcast-pin"></i>
+        </div>
+        <div>
+          <h5 class="fw-bold mb-0" style="font-size:16px;color:#0F172A;">3. Enterprise Digital + Smart NFC Physical Cards Bundles (Yearly)</h5>
+          <small class="text-muted">All-inclusive corporate packs including digital card licenses PLUS custom physical laser-engraved NFC cards for all teammates.</small>
+        </div>
+      </div>
+      <span class="badge bg-info text-white rounded-pill px-2.5 py-1 fw-bold" style="font-size:11px;">DIGITAL + HARDWARE BUNDLES</span>
+    </div>
+
+    <div class="card-body p-4">
+      <div class="row g-4">
+        <!-- 5 Cards + 5 NFC -->
+        <div class="col-md-4">
+          <div class="p-3.5 rounded-3 border bg-light bg-opacity-50 h-100">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <strong style="font-size:14px;color:#0F172A;">5 Digital + 5 NFC Cards</strong>
+              <span class="badge bg-info text-white rounded-pill">5 NFC Cards</span>
+            </div>
+            <p class="text-secondary small mb-3" style="font-size:12px;">5 Digital Cards + 5 Custom Physical NFC Cards with doorstep delivery.</p>
+            <div class="input-group mb-1">
+              <span class="input-group-text bg-white fw-bold">₹</span>
+              <input type="number" name="enterprise_5_nfc_price" class="form-control form-control-lg fw-bold" value="{{ pricing.enterprise_5_nfc_price|default:2499 }}" min="0" required>
+              <span class="input-group-text bg-light text-muted small">/ year</span>
+            </div>
+            <div class="small text-muted">Per user (Card+NFC): <b class="text-dark">₹{{ bundles.3.per_card }}</b>/year</div>
+          </div>
+        </div>
+
+        <!-- 10 Cards + 10 NFC -->
+        <div class="col-md-4">
+          <div class="p-3.5 rounded-3 border bg-light bg-opacity-50 h-100" style="border-color:#0284C7 !important;">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <strong style="font-size:14px;color:#0F172A;">10 Digital + 10 NFC Cards</strong>
+              <span class="badge bg-info text-white rounded-pill">10 NFC Cards</span>
+            </div>
+            <p class="text-secondary small mb-3" style="font-size:12px;">10 Digital Cards + 10 Custom Physical NFC Cards with doorstep delivery.</p>
+            <div class="input-group mb-1">
+              <span class="input-group-text bg-white fw-bold">₹</span>
+              <input type="number" name="enterprise_10_nfc_price" class="form-control form-control-lg fw-bold" value="{{ pricing.enterprise_10_nfc_price|default:4499 }}" min="0" required>
+              <span class="input-group-text bg-light text-muted small">/ year</span>
+            </div>
+            <div class="small text-muted">Per user (Card+NFC): <b class="text-dark">₹{{ bundles.4.per_card }}</b>/year</div>
+          </div>
+        </div>
+
+        <!-- 15 Cards + 15 NFC -->
+        <div class="col-md-4">
+          <div class="p-3.5 rounded-3 border bg-light bg-opacity-50 h-100">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <strong style="font-size:14px;color:#0F172A;">15 Digital + 15 NFC Cards</strong>
+              <span class="badge bg-info text-white rounded-pill">15 NFC Cards</span>
+            </div>
+            <p class="text-secondary small mb-3" style="font-size:12px;">15 Digital Cards + 15 Custom Physical NFC Cards with doorstep delivery.</p>
+            <div class="input-group mb-1">
+              <span class="input-group-text bg-white fw-bold">₹</span>
+              <input type="number" name="enterprise_15_nfc_price" class="form-control form-control-lg fw-bold" value="{{ pricing.enterprise_15_nfc_price|default:5999 }}" min="0" required>
+              <span class="input-group-text bg-light text-muted small">/ year</span>
+            </div>
+            <div class="small text-muted">Per user (Card+NFC): <b class="text-dark">₹{{ bundles.5.per_card }}</b>/year</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 4: Enterprise Slot Top-Up -->
+  <div class="card border-0 shadow-sm rounded-4 overflow-hidden" style="background:#FFFFFF;border:1px solid #E2E8F0 !important;">
+    <div class="card-header bg-light border-bottom p-3 px-4 d-flex align-items-center justify-content-between">
+      <div class="d-flex align-items-center gap-2">
+        <div style="width:34px;height:34px;border-radius:10px;background:#0F172A;color:#FFFFFF;display:grid;place-items:center;font-size:16px;">
+          <i class="bi bi-person-plus-fill"></i>
+        </div>
+        <div>
+          <h5 class="fw-bold mb-0" style="font-size:16px;color:#0F172A;">4. Enterprise Team Slot Top-up Rate (Per Card)</h5>
+          <small class="text-muted">Charged when an Enterprise CEO adds individual employee card slots (+1, +2, etc.) beyond their bundle quota.</small>
+        </div>
+      </div>
+      <span class="badge bg-dark text-white rounded-pill px-2.5 py-1 fw-bold" style="font-size:11px;">EXPANSION RATE</span>
+    </div>
+
+    <div class="card-body p-4">
+      <div class="row align-items-center">
+        <div class="col-md-6">
+          <label class="form-label fw-bold text-dark mb-1" style="font-size:14px;">Price per Extra Employee Card Slot</label>
+          <div class="input-group">
+            <span class="input-group-text bg-white fw-bold text-dark" style="font-size:16px;">₹</span>
+            <input type="number" name="enterprise_extra_card_price" class="form-control form-control-lg fw-extrabold text-dark" value="{{ pricing.enterprise_extra_card_price|default:199 }}" min="0" required>
+            <span class="input-group-text bg-light text-muted small">INR / extra card slot</span>
+          </div>
+          <div class="form-text small mt-1 text-muted">Original default: ₹199 per additional employee card slot.</div>
+        </div>
+        <div class="col-md-6 pt-3 pt-md-0 text-secondary small">
+          <div class="p-3 bg-light rounded-3 border">
+            <i class="bi bi-info-circle-fill text-primary me-1"></i>
+            When enterprise teams exceed their allocated card quota, they can top up additional slots at this rate without upgrading to a whole new tier.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Form Footer Save Actions -->
+  <div class="d-flex align-items-center justify-content-between p-3 px-4 bg-white rounded-4 border shadow-sm">
+    <div class="text-muted small">
+      <i class="bi bi-clock-history me-1"></i> Last updated: <b>{{ pricing.updated_at|date:"d M Y, h:i A" }}</b>
+    </div>
+    <div class="d-flex gap-2">
+      <button type="button" class="btn btn-outline-secondary rounded-pill px-3 py-2 fw-semibold" onclick="document.getElementById('resetPricingForm').submit()">
+        Reset to Defaults
+      </button>
+      <button type="submit" class="btn btn-primary rounded-pill px-4 py-2 fw-bold shadow-sm">
+        <i class="bi bi-check2-circle me-1"></i> Save &amp; Publish Prices
+      </button>
+    </div>
+  </div>
+</form>
+
+<!-- Section 5: Current Live Rates Summary Table -->
+<div class="card border-0 shadow-sm rounded-4 overflow-hidden mt-2" style="background:#FFFFFF;border:1px solid #E2E8F0 !important;">
+  <div class="card-header bg-light border-bottom p-3 px-4">
+    <h5 class="fw-bold mb-0" style="font-size:15px;color:#0F172A;">
+      <i class="bi bi-table text-primary me-1"></i> Current Active Platform Rates Summary
+    </h5>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0" style="font-size:13.5px;">
+      <thead class="table-light text-uppercase text-secondary" style="font-size:11px;letter-spacing:0.05em;">
+        <tr>
+          <th class="ps-4">Plan / Bundle</th>
+          <th>Category</th>
+          <th>Digital Cards</th>
+          <th>NFC Smart Cards</th>
+          <th>Billing Cycle</th>
+          <th>Active Rate</th>
+          <th>Effective Per Card</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="ps-4 fw-bold text-dark">Personal Digital Business Card</td>
+          <td><span class="badge bg-success-subtle text-success rounded-pill">Personal</span></td>
+          <td>1</td>
+          <td>0</td>
+          <td>Yearly Renewable</td>
+          <td><span class="fw-extrabold text-dark" style="font-size:15px;">₹{{ pricing.personal_digital_price }}</span></td>
+          <td>₹{{ pricing.personal_digital_price }}</td>
+        </tr>
+        <tr>
+          <td class="ps-4 fw-bold text-dark">Personal Digital + Physical NFC Card</td>
+          <td><span class="badge bg-success-subtle text-success rounded-pill">Personal</span></td>
+          <td>1</td>
+          <td>1 Custom Physical Card</td>
+          <td>Yearly Renewable</td>
+          <td><span class="fw-extrabold text-info" style="font-size:15px;">₹{{ pricing.personal_nfc_price }}</span></td>
+          <td>₹{{ pricing.personal_nfc_price }}</td>
+        </tr>
+        {% for b in bundles %}
+        <tr>
+          <td class="ps-4 fw-bold text-dark">{{ b.title }}</td>
+          <td><span class="badge bg-primary-subtle text-primary rounded-pill">Enterprise</span></td>
+          <td>{{ b.cards }}</td>
+          <td>{% if b.has_nfc %}{{ b.nfc_cards }} Custom Cards{% else %}None{% endif %}</td>
+          <td>Yearly Renewable</td>
+          <td><span class="fw-extrabold text-dark" style="font-size:15px;">₹{{ b.price }}</span></td>
+          <td><span class="text-muted">₹{{ b.per_card }}/card</span></td>
+        </tr>
+        {% endfor %}
+        <tr class="table-light">
+          <td class="ps-4 fw-bold text-dark">Enterprise Seat Top-up (+1 Slot)</td>
+          <td><span class="badge bg-dark rounded-pill">Enterprise Add-on</span></td>
+          <td>+1 Slot</td>
+          <td>Optional</td>
+          <td>One-time per seat</td>
+          <td><span class="fw-extrabold text-dark" style="font-size:15px;">₹{{ pricing.enterprise_extra_card_price }}</span></td>
+          <td>₹{{ pricing.enterprise_extra_card_price }}/slot</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+

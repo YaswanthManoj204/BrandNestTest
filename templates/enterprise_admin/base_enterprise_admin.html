@@ -503,7 +503,12 @@
         </li>
         <li>
           <a href="{% url 'enterprise_admin_billing' %}" class="sidebar-nav-link {% if active_ent_menu == 'billing' %}active{% endif %}">
-            <i class="bi bi-receipt"></i> Bundles & Revenue
+            <i class="bi bi-receipt"></i> Bundles &amp; Revenue
+          </a>
+        </li>
+        <li>
+          <a href="{% url 'enterprise_admin_pricing' %}" class="sidebar-nav-link {% if active_ent_menu == 'pricing' %}active{% endif %}">
+            <i class="bi bi-tag-fill text-warning"></i> Plan &amp; Card Pricing
           </a>
         </li>
       </ul>

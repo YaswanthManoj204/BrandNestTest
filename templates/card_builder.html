@@ -2765,9 +2765,9 @@
     <nav class="nav" aria-label="Main">
       <a href="{% url 'landing' %}" class="logo"><span class="mark"></span>BrandNest</a>
       <ul>
-        <li><a href="{% url 'landing' %}#modules">Modules</a></li>
-        <li><a href="{% url 'card_builder' %}" aria-current="page">Business card</a></li>
-        <li><a href="{% url 'website_builder' %}">Website builder</a></li>
+        <li><a href="{% url 'landing' %}">Home</a></li>
+        <li><a href="{% url 'card_builder' %}" aria-current="page">Business Card</a></li>
+        <li><a href="{% url 'card_list' %}">My Cards</a></li>
       </ul>
       <div style="display:flex;align-items:center;gap:10px;">
         {% if user.is_authenticated %}
@@ -2845,7 +2845,7 @@
       <input type="hidden" name="avatar_position" id="inputAvatarPos" value="{{ card.layout_config.avatar_position|default:'50% 50%' }}">
       <!-- Hidden Inputs for Razorpay Demo Payment & NFC Card -->
       <input type="hidden" name="razorpay_payment_id" id="inputRazorpayPaymentId" value="">
-      <input type="hidden" name="razorpay_amount" id="inputRazorpayAmount" value="499">
+      <input type="hidden" name="razorpay_amount" id="inputRazorpayAmount" value="{{ pricing.personal_digital_price|default:499 }}">
       <input type="hidden" name="razorpay_method" id="inputRazorpayMethod" value="UPI / Card (Demo)">
       <input type="hidden" name="payment_verified" id="inputPaymentVerified" value="">
       <input type="hidden" name="nfc_ordered" id="inputNfcOrdered" value="false">
@@ -4096,6 +4096,47 @@
             </button>
           </div>
         </div>
+
+        {% if not card.layout_config.nfc_card or not card.layout_config.nfc_card.ordered %}
+        <!-- Dedicated Physical Contactless NFC Card Upgrade Section -->
+        <div class="pkg-card" style="background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); border: 2px solid #38BDF8; border-radius: 20px; padding: 24px; box-shadow: 0 10px 30px rgba(15,23,42,0.15); color: #fff;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:18px;">
+            <div style="max-width: 640px;">
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+                <span style="background: linear-gradient(135deg, #0284C7, #38BDF8); color: #fff; font-weight: 800; font-size: 11px; padding: 4px 12px; border-radius: 999px; letter-spacing: 0.5px;">
+                  <i class="bi bi-broadcast"></i> PHYSICAL HARDWARE UPGRADE
+                </span>
+                <span style="background: rgba(16, 185, 129, 0.15); color: #34D399; border: 1px solid rgba(52, 211, 153, 0.3); font-weight: 700; font-size: 11px; padding: 3px 10px; border-radius: 999px;">
+                  FREE EXPRESS DELIVERY
+                </span>
+              </div>
+              <h3 style="font-size: 20px; font-weight: 800; color: #FFFFFF; margin: 0;">
+                Upgrade to Custom Physical Contactless Smart NFC Card
+              </h3>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end; justify-content:center; gap:12px; min-width: 250px;">
+              <div style="text-align:right;">
+                <div style="font-size: 11px; color: #94A3B8; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Physical Card Upgrade</div>
+                <div style="display:flex; align-items:baseline; justify-content:flex-end; gap:6px;">
+                  <span style="font-size: 30px; font-weight: 900; color: #38BDF8;">₹{{ pricing.personal_nfc_upgrade_price|default:500 }}</span>
+                  <span style="font-size: 13px; color: #64748B; text-decoration: line-through;">₹{{ pricing.personal_nfc_price|default:999 }}</span>
+                </div>
+                <div style="font-size: 11px; color: #10B981; font-weight: 600;">Save ₹{{ pricing.personal_digital_price|default:499 }} with digital credit</div>
+              </div>
+              <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; width:100%;">
+                <button type="button" class="pill" id="btnPreviewNfcUpgrade" onclick="window.openNfcStudioModal(event)" style="background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.25); font-weight: 700; font-size: 13.5px; padding: 10px 18px; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; backdrop-filter: blur(8px);">
+                  <i class="bi bi-eye-fill" style="color: #38BDF8;"></i>
+                  <span>Preview &amp; Customize NFC</span>
+                </button>
+                <button type="button" class="pill" id="btnOrderNfcUpgrade" onclick="window.triggerRazorpayForNfcUpgrade(event)" style="background: #38BDF8; color: #0F172A; font-weight: 800; font-size: 13.5px; padding: 10px 20px; border-radius: 999px; cursor: pointer; border: 0; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 15px rgba(56, 189, 248, 0.4);">
+                  <i class="bi bi-cart-check-fill"></i>
+                  <span>Order NFC Card (₹{{ pricing.personal_nfc_upgrade_price|default:500 }})</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
       </div>
       {% else %}
       <div class="submit-packages-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(290px, 1fr));gap:18px;margin-top:24px;">
@@ -4110,7 +4151,7 @@
             </div>
             <h3 style="font-size:17px;font-weight:800;color:var(--ink);margin:0 0 6px;">Digital Business Card</h3>
             <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:10px;">
-              <span style="font-size:26px;font-weight:800;color:var(--ink);">₹499</span>
+              <span style="font-size:26px;font-weight:800;color:var(--ink);">₹{{ pricing.personal_digital_price|default:499 }}</span>
               <span style="font-size:12.5px;color:var(--mute);">/ year</span>
             </div>
             <ul style="list-style:none;padding:0;margin:0 0 18px;display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:#475569;">
@@ -4122,7 +4163,7 @@
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button class="pill" type="button" id="btnGenerateCard" onclick="window.triggerRazorpayForDigital(event)" style="flex:1;background:#0F172A;color:#fff;font-weight:700;font-size:14px;padding:12px 18px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;border:0;">
               <i class="bi bi-lightning-charge-fill" style="color:#FFCE88;"></i>
-              <span>Generate Business Card (₹499)</span>
+              <span>Generate Business Card (₹{{ pricing.personal_digital_price|default:499 }})</span>
             </button>
           </div>
         </div>
@@ -4140,7 +4181,7 @@
             </div>
             <h3 style="font-size:17px;font-weight:800;color:#ffffff;margin:0 0 6px;">Business Card + NFC Card</h3>
             <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:10px;">
-              <span style="font-size:26px;font-weight:800;color:#ffffff;">₹999</span>
+              <span style="font-size:26px;font-weight:800;color:#ffffff;">₹{{ pricing.personal_nfc_price|default:999 }}</span>
               <span style="font-size:12.5px;color:#94A3B8;">/ all-inclusive</span>
             </div>
             <ul style="list-style:none;padding:0;margin:0 0 18px;display:flex;flex-direction:column;gap:6px;font-size:12.5px;color:#CBD5E1;">
@@ -4151,7 +4192,7 @@
           </div>
           <button class="pill" type="button" id="btnCustomizeNfcCard" onclick="window.openNfcStudioModal(event)" style="background:#38BDF8;color:#0F172A;font-weight:800;font-size:14px;padding:12px 20px;border-radius:999px;border:0;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;box-shadow:0 4px 16px rgba(56,189,248,0.35);">
             <i class="bi bi-palette-fill"></i>
-            <span>Design NFC Card &amp; Pay (₹999)</span>
+            <span>Design NFC Card &amp; Pay (₹{{ pricing.personal_nfc_price|default:999 }})</span>
             <i class="bi bi-arrow-right"></i>
           </button>
         </div>
@@ -4242,14 +4283,15 @@
             <!-- Live QR Code -->
             <div class="wallet-pass-qr-box">
               <img id="walletQrImg"
-                src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https%3A%2F%2Fbrandnest.com"
+                src="{% if qr_data_uri %}{{ qr_data_uri }}{% elif card.slug %}{% url 'card_qr_image' slug=card.slug %}{% else %}/card/{{ card.slug|default:'preview' }}/qr.png{% endif %}"
+                onerror="if(this.src.indexOf('qrserver')===-1) this.src='https://api.qrserver.com/v1/create-qr-code/?size=140x140&data='+encodeURIComponent(window.cardShareUrl || window.location.origin + '/card/' + (window.cardSlug || ''));"
                 alt="Pass QR Code">
             </div>
           </div>
         </div>
 
         <!-- Action Button -->
-        <button type="button" class="btn-wallet-action" id="walletActionButton">
+        <button type="button" class="btn-wallet-action" id="walletActionButton" onclick="downloadWalletPass()">
           <i class="bi bi-apple" id="walletActionIcon"></i> <span id="walletActionText">Add to Apple Wallet</span>
         </button>
       </div>
@@ -4660,31 +4702,6 @@
       </div>
     </div>
   </section>
-
-  <!-- Facebook Chat Help Modal -->
-  <div class="modal fade" id="fbChatHelpModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content rounded-4 border-0 p-4 shadow-lg">
-        <div class="modal-header border-0 pb-0">
-          <h5 class="modal-title fw-bold"><i class="bi bi-messenger text-primary me-2"></i> How to setup Facebook Chat</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body py-3 text-secondary small">
-          <p>Connecting Facebook Messenger to your BrandNest digital business card is quick and easy:</p>
-          <ol class="ps-3 d-flex flex-column gap-2 mb-3">
-            <li>Go to your Facebook Business Page.</li>
-            <li>Copy your <strong>Page ID</strong> or your Page's username / slug from the URL (e.g. <code>facebook.com/yourbrand</code>).</li>
-            <li>Paste it into the Facebook Page ID input field in your Card Settings.</li>
-            <li>Toggle <strong>Enable</strong> and click <strong>Save</strong>.</li>
-          </ol>
-          <p class="mb-0">Your card will automatically display a high-converting Messenger chat bubble that opens conversations with your audience!</p>
-        </div>
-        <div class="modal-footer border-0 pt-0">
-          <button type="button" class="pill sm" data-bs-dismiss="modal">Got it!</button>
-        </div>
-      </div>
-    </div>
-  </div>
 
   <!-- Floating Toast Notification -->
   <div class="st-toast-notification" id="settingsToastNotification">
@@ -6787,14 +6804,21 @@
           if (mMockup) mMockup.style.backgroundColor = color;
         }
 
-        // Dynamic QR code for wallet pass
+        // Dynamic QR code for wallet pass pointing directly to business card URL
         const qrImg = $('walletQrImg');
         if (qrImg) {
-          const cardUrl = window.location.origin + '/card/';
-          if (window.QRCode && window.QRCode.toDataURL) {
-            window.QRCode.toDataURL(cardUrl, { width: 120, margin: 1, color: { dark: '#0F172A', light: '#FFFFFF' } }, function (err, url) {
-              if (!err && url) qrImg.src = url;
-            });
+          const liveSlug = window.cardSlug || ($('settingsCustomDomain')?.value || '').replace(/\.brandnest\.me/g, '').trim() || ($('business_name')?.value || '').toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+          if (window.cardSlug) {
+            qrImg.src = '/card/' + encodeURIComponent(window.cardSlug) + '/qr.png';
+          } else {
+            const cardUrl = window.cardShareUrl || (window.location.origin + '/card/' + (liveSlug ? encodeURIComponent(liveSlug) + '/' : ''));
+            if (window.QRCode && window.QRCode.toDataURL) {
+              window.QRCode.toDataURL(cardUrl, { width: 140, margin: 1, color: { dark: '#0F172A', light: '#FFFFFF' } }, function (err, url) {
+                if (!err && url) qrImg.src = url;
+              });
+            } else {
+              qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=' + encodeURIComponent(cardUrl);
+            }
           }
         }
 
@@ -6972,12 +6996,7 @@
       };
 
       window.openFbChatHelpModal = function () {
-        const modalEl = $('fbChatHelpModal');
-        if (modalEl && window.bootstrap && window.bootstrap.Modal) {
-          new window.bootstrap.Modal(modalEl).show();
-        } else {
-          alert('How to setup Facebook Chat:\n1. Copy your Facebook Page ID or username\n2. Enter it into the field\n3. Click Enable and Save.');
-        }
+        alert('How to setup Facebook Chat:\n\n1. Go to your Facebook Business Page.\n2. Copy your Page ID or username / slug from the URL (e.g. facebook.com/yourbrand).\n3. Paste it into the Facebook Page ID input field in your Card Settings.\n4. Toggle Enable and click Save.');
       };
 
       // 5. Calendly
@@ -7510,7 +7529,9 @@
       };
 
       window.__rzpPaymentVerified = false;
-      window.currentCheckoutAmount = 499;
+      window.personalDigitalPrice = {{ pricing.personal_digital_price|default:499 }};
+      window.personalNfcPrice = {{ pricing.personal_nfc_price|default:999 }};
+      window.currentCheckoutAmount = window.personalDigitalPrice;
       window.currentCheckoutTitle = 'Personal Pro Digital Business Card';
 
       window.nfcCardState = {
@@ -7536,6 +7557,18 @@
       window.hasNfcIncluded = {{ enterprise_quota.has_nfc|yesno:"true,false" }};
       window.isEditMode = {{ is_edit|yesno:"true,false" }};
       window.hasNfcOrderedAlready = {% if card.layout_config.nfc_card and card.layout_config.nfc_card.ordered %}true{% else %}false{% endif %};
+      window.personalNfcUpgradePrice = {{ pricing.personal_nfc_upgrade_price|default:500 }};
+      window.cardSlug = "{{ card.slug|default:'' }}";
+      window.cardShareUrl = "{{ share_url|default:'' }}";
+
+      window.downloadWalletPass = function() {
+        const platform = (walletState && walletState.platform) ? walletState.platform : 'apple';
+        const platformName = platform === 'apple' ? 'Apple Wallet' : 'Google Wallet';
+        const liveSlug = window.cardSlug || ($('settingsCustomDomain')?.value || '').replace(/\.brandnest\.me/g, '').trim() || ($('business_name')?.value || '').toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+        const cardUrl = window.cardShareUrl || (window.location.origin + '/card/' + (liveSlug ? encodeURIComponent(liveSlug) + '/' : ''));
+        const qrUrl = (window.cardSlug ? ('/card/' + encodeURIComponent(window.cardSlug) + '/qr.png') : ($('walletQrImg')?.src || ''));
+        alert(`${platformName} Pass Ready!\n\nYour pass is synchronized with your live business card:\n${cardUrl}\n\nWhen added to ${platformName}, scanning this pass instantly opens your digital business card.`);
+      };
 
       // Trigger Razorpay for Digital Card Only (₹499) or Free generation for enterprise
       window.triggerRazorpayForDigital = function(e) {
@@ -7554,16 +7587,25 @@
           $('cardForm').submit();
           return;
         }
-        window.currentCheckoutAmount = 499;
+        window.currentCheckoutAmount = window.personalDigitalPrice;
         window.currentCheckoutTitle = 'Personal Pro Digital Business Card';
         window.triggerRazorpayPaymentGateway(e);
       };
 
-      // Trigger Razorpay for NFC Hardware Bundle (₹999)
+      // Trigger Razorpay for NFC Hardware Bundle (₹{{ pricing.personal_nfc_price|default:999 }})
       window.triggerRazorpayForNfcBundle = function(e) {
         if ($('inputNfcOrdered')) $('inputNfcOrdered').value = 'true';
-        window.currentCheckoutAmount = 999;
+        window.currentCheckoutAmount = window.personalNfcPrice;
         window.currentCheckoutTitle = 'Business Card + Physical NFC Smart Card';
+        window.triggerRazorpayPaymentGateway(e);
+      };
+
+      // Trigger Razorpay for NFC Hardware Upgrade (₹{{ pricing.personal_nfc_upgrade_price|default:500 }})
+      window.triggerRazorpayForNfcUpgrade = function(e) {
+        window.syncNfcHiddenInputs();
+        if ($('inputNfcOrdered')) $('inputNfcOrdered').value = 'true';
+        window.currentCheckoutAmount = window.personalNfcUpgradePrice;
+        window.currentCheckoutTitle = 'Contactless Smart NFC Card Upgrade';
         window.triggerRazorpayPaymentGateway(e);
       };
 
@@ -8028,6 +8070,10 @@
           $('cardForm').submit();
           return;
         }
+        if (window.isEditMode && !window.hasNfcOrderedAlready) {
+          window.triggerRazorpayForNfcUpgrade();
+          return;
+        }
         window.triggerRazorpayForNfcBundle();
       };
 
@@ -8075,13 +8121,16 @@
           modal.style.display = 'flex';
           modal.setAttribute('aria-hidden', 'false');
 
-          const amt = window.currentCheckoutAmount || 499;
+          const amt = window.currentCheckoutAmount || window.personalDigitalPrice || 499;
           const title = window.currentCheckoutTitle || 'Personal Pro Digital Business Card';
 
           if ($('rzpPriceDisplay')) $('rzpPriceDisplay').textContent = amt + '.00';
           if ($('rzpProductDesc')) $('rzpProductDesc').textContent = title;
           if ($('rzpPayBtnText')) $('rzpPayBtnText').textContent = `Pay ₹${amt}.00`;
           if ($('rzpQrAmtDisplay')) $('rzpQrAmtDisplay').innerHTML = `Total: <b>₹${amt}.00</b>`;
+          if ($('rzpScanOrText')) $('rzpScanOrText').textContent = `OR SCAN TO PAY ₹${amt}`;
+          if ($('rzpProcessSubtitle')) $('rzpProcessSubtitle').textContent = `Securing connection with Razorpay payment gateway (₹${amt}.00)...`;
+          if ($('rzpSuccessHeading')) $('rzpSuccessHeading').textContent = `Payment of ₹${amt}.00 Successful!`;
 
           const normalView = $('rzpNormalView');
           const footerAction = $('rzpFooterAction');
@@ -8165,7 +8214,7 @@
 
           // Step 2: Set hidden values & submit form
           window.__rzpPaymentVerified = true;
-          const finalAmt = String(window.currentCheckoutAmount || 499);
+          const finalAmt = String(window.currentCheckoutAmount || window.personalDigitalPrice || 499);
           if ($('inputRazorpayPaymentId')) $('inputRazorpayPaymentId').value = demoTxnId;
           if ($('inputRazorpayAmount')) $('inputRazorpayAmount').value = finalAmt;
           if ($('inputRazorpayMethod')) $('inputRazorpayMethod').value = window.selectedPaymentMethod || 'UPI / Card (Demo)';
@@ -8329,7 +8378,17 @@
           </div>
           <div>
             <h3 class="nfc-modal-title">Interactive Smart NFC Card Studio</h3>
-            <p class="nfc-modal-subtitle">Full drag-and-drop &amp; custom typography · Included in ₹999 Hardware Bundle</p>
+            <p class="nfc-modal-subtitle">
+              {% if enterprise_quota.is_enterprise and enterprise_quota.has_nfc %}
+                Included in {{ enterprise_quota.company_name|default:"Enterprise" }} Corporate Plan
+              {% elif is_edit and card.layout_config.nfc_card and card.layout_config.nfc_card.ordered %}
+                Edit &amp; update physical card laser engraving specifications
+              {% elif is_edit and not card.layout_config.nfc_card.ordered %}
+                Interactive 3D preview &amp; custom typography · Physical Hardware Upgrade (₹{{ pricing.personal_nfc_upgrade_price|default:500 }})
+              {% else %}
+                Full drag-and-drop &amp; custom typography · Included in ₹{{ pricing.personal_nfc_price|default:999 }} Hardware Bundle
+              {% endif %}
+            </p>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
@@ -8655,14 +8714,32 @@
                 <span class="nfc-price-total" style="color:#10B981;">₹0.00</span>
               </div>
             </div>
+            {% elif is_edit and not card.layout_config.nfc_card.ordered %}
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-size:12.5px;color:#64748B;">
+              <span>Personal Digital Business Card</span>
+              <span style="font-weight:600;color:#10B981;">Already Active &amp; Paid (₹0.00)</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:12.5px;color:#64748B;">
+              <span>Custom Contactless Smart NFC Card Upgrade</span>
+              <span style="font-weight:600;color:#0F172A;">₹{{ pricing.personal_nfc_upgrade_price|default:500 }}.00</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid #E2E8F0;">
+              <div>
+                <strong style="color:#0F172A;font-size:14px;">Total Upgrade Fee</strong>
+                <span style="display:block;color:#10B981;font-size:11.5px;font-weight:600;">✓ Free Express Doorstep Delivery</span>
+              </div>
+              <div style="text-align:right;">
+                <span class="nfc-price-total" style="color:#0284C7;">₹{{ pricing.personal_nfc_upgrade_price|default:500 }}.00</span>
+              </div>
+            </div>
             {% else %}
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-size:12.5px;color:#64748B;">
               <span>Digital Business Card</span>
-              <span style="font-weight:600;color:#0F172A;">₹499.00</span>
+              <span style="font-weight:600;color:#0F172A;">₹{{ pricing.personal_digital_price|default:499 }}.00</span>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:12.5px;color:#64748B;">
-              <span>Custom Smart Contactless NFC Card</span>
-              <span style="font-weight:600;color:#0F172A;">₹500.00</span>
+              <span>Custom Smart Contactless NFC Card Hardware</span>
+              <span style="font-weight:600;color:#0F172A;">Included in Bundle</span>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid #E2E8F0;">
               <div>
@@ -8670,7 +8747,7 @@
                 <span style="display:block;color:#10B981;font-size:11.5px;font-weight:600;">✓ Free Express Doorstep Delivery</span>
               </div>
               <div style="text-align:right;">
-                <span class="nfc-price-total">₹999.00</span>
+                <span class="nfc-price-total">₹{{ pricing.personal_nfc_price|default:999 }}.00</span>
               </div>
             </div>
             {% endif %}
@@ -8679,7 +8756,7 @@
           <!-- Proceed Button -->
           <button type="button" class="btn-nfc-proceed-pay" onclick="window.proceedFromNfcToPayment()">
             <i class="bi bi-shield-lock-fill"></i>
-            <span>{% if enterprise_quota.is_enterprise and enterprise_quota.has_nfc %}Confirm &amp; Generate NFC Card (Free){% elif is_edit and card.layout_config.nfc_card and card.layout_config.nfc_card.ordered %}Save &amp; Update NFC Card (Free){% else %}Proceed to Pay ₹999 via Razorpay{% endif %}</span>
+            <span>{% if enterprise_quota.is_enterprise and enterprise_quota.has_nfc %}Confirm &amp; Generate NFC Card (Free){% elif is_edit and card.layout_config.nfc_card and card.layout_config.nfc_card.ordered %}Save &amp; Update NFC Card (Free){% elif is_edit and not card.layout_config.nfc_card.ordered %}Proceed to Pay ₹{{ pricing.personal_nfc_upgrade_price|default:500 }} &amp; Order NFC Card{% else %}Proceed to Pay ₹{{ pricing.personal_nfc_price|default:999 }} via Razorpay{% endif %}</span>
             <i class="bi bi-arrow-right"></i>
           </button>
         </div>
@@ -8715,7 +8792,7 @@
         <div class="rzp-header-right">
           <div class="rzp-price-tag">
             <span class="rzp-currency">₹</span>
-            <span class="rzp-amount" id="rzpPriceDisplay">499.00</span>
+            <span class="rzp-amount" id="rzpPriceDisplay">{{ pricing.personal_digital_price|default:499 }}.00</span>
           </div>
           <button type="button" class="rzp-close-btn" onclick="window.closeRazorpayModal()" aria-label="Close Razorpay checkout">
             <i class="bi bi-x-lg"></i>
@@ -8776,7 +8853,7 @@
                 </button>
               </div>
 
-              <div class="rzp-divider-or"><span>OR SCAN TO PAY ₹499</span></div>
+              <div class="rzp-divider-or"><span id="rzpScanOrText">OR SCAN TO PAY ₹{{ pricing.personal_digital_price|default:499 }}</span></div>
 
               <div class="rzp-qr-box">
                 <div class="rzp-qr-frame">
@@ -8825,7 +8902,7 @@
                 </div>
                 <div class="rzp-qr-details">
                   <span class="rzp-qr-hint"><i class="bi bi-qr-code"></i> Scan with any UPI app to pay</span>
-                  <span class="rzp-qr-amt" id="rzpQrAmtDisplay">Total: <b>₹499.00</b></span>
+                  <span class="rzp-qr-amt" id="rzpQrAmtDisplay">Total: <b>₹{{ pricing.personal_digital_price|default:499 }}.00</b></span>
                   <span class="rzp-qr-sub">Instant auto-approval in demo mode</span>
                 </div>
               </div>
@@ -8893,7 +8970,7 @@
         <div class="rzp-footer" id="rzpFooterAction">
           <button type="button" class="rzp-pay-btn" id="btnRzpSubmitPay" onclick="window.processRazorpayDemoPayment()">
             <i class="bi bi-lock-fill"></i>
-            <span id="rzpPayBtnText">Pay ₹499.00</span>
+            <span id="rzpPayBtnText">Pay ₹{{ pricing.personal_digital_price|default:499 }}.00</span>
             <i class="bi bi-arrow-right"></i>
           </button>
           <div class="rzp-trust-badges">
@@ -8911,13 +8988,13 @@
         <div class="rzp-spinner-box" id="rzpSpinnerBox">
           <div class="rzp-pulse-spinner"></div>
           <h3 id="rzpProcessTitle">Authorizing Payment...</h3>
-          <p id="rzpProcessSubtitle">Securing connection with Razorpay payment gateway (₹499.00)...</p>
+          <p id="rzpProcessSubtitle">Securing connection with Razorpay payment gateway (₹{{ pricing.personal_digital_price|default:499 }}.00)...</p>
         </div>
         <div class="rzp-success-box" id="rzpSuccessBox" style="display:none;">
           <div class="rzp-success-icon">
             <i class="bi bi-check2"></i>
           </div>
-          <h3>Payment of ₹499.00 Successful!</h3>
+          <h3 id="rzpSuccessHeading">Payment of ₹{{ pricing.personal_digital_price|default:499 }}.00 Successful!</h3>
           <p class="rzp-tid-label">Transaction ID: <code id="rzpTxnIdDisplay">pay_demo_success</code></p>
           <p class="rzp-success-note">Generating your digital business card and redirecting to preview...</p>
         </div>

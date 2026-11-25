@@ -26,98 +26,52 @@ from django.db.models import Sum, Count, Q
 from apps.domains.models import Domain
 from apps.cards.models import (
     BusinessCard, UserPlan, Team, CardLead, NFCTag,
-    CompanySettings, WalletPassConfig, CardAnalyticsEvent, EnterpriseCompany
+    CompanySettings, WalletPassConfig, CardAnalyticsEvent, EnterpriseCompany,
+    PlatformPricing
 )
 from apps.cards.notifications import (
     send_plan_expiration_email,
     send_super_admin_nfc_order_notification,
-    send_user_nfc_status_update_notification
+    send_user_nfc_status_update_notification,
+    send_user_nfc_order_placed_notification
 )
 from apps.websites.models import Industry, Website, ContactSubmission
 
 
-ENTERPRISE_BUNDLES = [
-    # 1. Standard Digital Business Card Bundles
-    {
-        'id': '5',
-        'cards': 5,
-        'nfc_cards': 0,
-        'has_nfc': False,
-        'price': 999,
-        'per_card': '199.80',
-        'team_cards': 4,
-        'title': '5 Business Cards',
-        'badge': 'Starter',
-        'billing_cycle': 'yearly',
-        'meta': 'Includes your own card + 4 team member cards · Yearly Renewable',
-    },
-    {
-        'id': '10',
-        'cards': 10,
-        'nfc_cards': 0,
-        'has_nfc': False,
-        'price': 1799,
-        'per_card': '179.90',
-        'team_cards': 9,
-        'title': '10 Business Cards',
-        'badge': 'Most Popular',
-        'billing_cycle': 'yearly',
-        'meta': 'Includes your own card + 9 team member cards · Yearly Renewable',
-    },
-    {
-        'id': '15',
-        'cards': 15,
-        'nfc_cards': 0,
-        'has_nfc': False,
-        'price': 2499,
-        'per_card': '166.60',
-        'team_cards': 14,
-        'title': '15 Business Cards',
-        'badge': 'Best Value',
-        'billing_cycle': 'yearly',
-        'meta': 'Includes your own card + 14 team member cards · Yearly Renewable',
-    },
-    # 2. Digital + Smart Contactless NFC Physical Cards Bundles
-    {
-        'id': '5_nfc',
-        'cards': 5,
-        'nfc_cards': 5,
-        'has_nfc': True,
-        'price': 2499,
-        'per_card': '499.80',
-        'team_cards': 4,
-        'title': '5 Business Cards + 5 NFC Cards',
-        'badge': '5 Cards + 5 NFC',
-        'billing_cycle': 'yearly',
-        'meta': 'Includes 5 Digital Cards + 5 Custom Smart NFC Cards with Free Express Delivery · Yearly Renewable',
-    },
-    {
-        'id': '10_nfc',
-        'cards': 10,
-        'nfc_cards': 10,
-        'has_nfc': True,
-        'price': 4499,
-        'per_card': '449.90',
-        'team_cards': 9,
-        'title': '10 Business Cards + 10 NFC Cards',
-        'badge': '10 Cards + 10 NFC',
-        'billing_cycle': 'yearly',
-        'meta': 'Includes 10 Digital Cards + 10 Custom Smart NFC Cards with Free Express Delivery · Yearly Renewable',
-    },
-    {
-        'id': '15_nfc',
-        'cards': 15,
-        'nfc_cards': 15,
-        'has_nfc': True,
-        'price': 5999,
-        'per_card': '399.93',
-        'team_cards': 14,
-        'title': '15 Business Cards + 15 NFC Cards',
-        'badge': '15 Cards + 15 NFC',
-        'billing_cycle': 'yearly',
-        'meta': 'Includes 15 Digital Cards + 15 Custom Smart NFC Cards with Free Express Delivery · Yearly Renewable',
-    },
-]
+class DynamicEnterpriseBundles:
+    """
+    Dynamic iterable & indexable proxy for ENTERPRISE_BUNDLES, ensuring pricing updates
+    saved by Super Admin in PlatformPricing are immediately live across checkout and billing.
+    """
+    def __iter__(self):
+        return iter(PlatformPricing.get_pricing().get_enterprise_bundles())
+
+    def __getitem__(self, index):
+        return PlatformPricing.get_pricing().get_enterprise_bundles()[index]
+
+    def __len__(self):
+        return len(PlatformPricing.get_pricing().get_enterprise_bundles())
+
+    def __repr__(self):
+        return repr(PlatformPricing.get_pricing().get_enterprise_bundles())
+
+    def get(self, key, default=None):
+        for b in self:
+            if b.get('id') == str(key):
+                return b
+        return default
+
+
+ENTERPRISE_BUNDLES = DynamicEnterpriseBundles()
+
+
+def get_enterprise_bundles():
+    return PlatformPricing.get_pricing().get_enterprise_bundles()
+
+
+def get_extra_card_price():
+    return PlatformPricing.get_pricing().enterprise_extra_card_price
+
 EXTRA_CARD_PRICE_INR = 199
 
 
@@ -258,13 +212,102 @@ def get_lan_ip():
     return None
 
 
-def get_shareable_url(request, path):
+def get_card_subdomain_url(card_or_slug, request=None):
     """
-    Builds a direct, reliable shareable URL for QR codes.
-    1. If request is from localhost/127.0.0.1/0.0.0.0, uses the machine's local Wi-Fi LAN IP
-       (e.g. http://192.168.1.42:8000/card/<slug>/) so phones on the same Wi-Fi can scan it.
-    2. Otherwise uses the absolute request URI (works on production domains or direct LAN IP).
+    Constructs the official card link:
+    - In production (hosted on a domain like qkbiz.com or custom domain):
+      https://<slug>.<domain>/ (e.g. https://yas.qkbiz.com/)
+    - In local development (unhosted server / local testing):
+      http://<slug>.<lan_ip>.nip.io:<port>/ (e.g. http://yas.192.168.1.34.nip.io:8000/)
+      Using nip.io provides true wildcard subdomain testing on local machines and mobile devices
+      without requiring a purchased domain or DNS configuration.
     """
+    from django.conf import settings
+    slug = card_or_slug.slug if hasattr(card_or_slug, 'slug') else str(card_or_slug)
+    slug = slug.strip('/').lower()
+
+    if hasattr(card_or_slug, 'domain') and card_or_slug.domain and card_or_slug.domain.domain_type == 'custom':
+        return f"https://{card_or_slug.domain.domain_name}/"
+
+    base_domain = getattr(settings, 'CARD_BASE_DOMAIN', '').strip().lower()
+
+    # If CompanySettings has custom configured domain, prefer it if valid production domain
+    try:
+        from apps.cards.models import CompanySettings
+        cs = CompanySettings.objects.filter(id=1).first()
+        if cs and cs.website:
+            clean_w = cs.website.replace('http://', '').replace('https://', '').strip('/').split(':')[0].lower()
+            if clean_w and '.' in clean_w and not clean_w.startswith(('127.', '192.', '10.', 'localhost')) and not clean_w.replace('.', '').isdigit():
+                base_domain = clean_w
+    except Exception:
+        pass
+
+    # If hosted on a production domain, return https://<slug>.<domain>/
+    if base_domain:
+        return f"https://{slug}.{base_domain}/"
+
+    # Otherwise, unhosted local testing using wildcard DNS (nip.io)
+    server_ip = get_lan_ip() or '127.0.0.1'
+    port_str = ":8000"
+
+    if request:
+        try:
+            host_header = request.get_host().strip().lower()
+            if ':' in host_header:
+                parts = host_header.split(':')
+                raw_host = parts[0]
+                port = parts[1]
+                port_str = f":{port}" if port and port not in ('80', '443') else ""
+            else:
+                raw_host = host_header
+                port_str = ""
+
+            if raw_host in ('0.0.0.0', '127.0.0.1', 'localhost', 'testserver') or raw_host.startswith('0.0.0.0'):
+                server_ip = get_lan_ip() or '127.0.0.1'
+                if not port_str:
+                    port_str = ":8000"
+            elif re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', raw_host):
+                if not raw_host.startswith(('0.', '127.')):
+                    server_ip = raw_host
+            elif '.nip.io' in raw_host or '.sslip.io' in raw_host:
+                ip_match = re.search(r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\.(nip|sslip)\.io', raw_host)
+                if ip_match:
+                    server_ip = ip_match.group(1)
+            elif '.' in raw_host and not raw_host.replace('.', '').isdigit():
+                domain_parts = raw_host.split('.')
+                clean_domain = '.'.join(domain_parts[1:]) if len(domain_parts) >= 3 else raw_host
+                return f"https://{slug}.{clean_domain}{port_str}/"
+        except Exception:
+            pass
+
+    return f"http://{slug}.{server_ip}.nip.io{port_str}/"
+
+
+def get_qr_target_url(card_or_slug, request=None):
+    """
+    Returns the exact URL encoded into the QR code.
+    Matches the card subdomain URL so scanning on mobile navigates directly to the subdomain.
+    """
+    return get_card_subdomain_url(card_or_slug, request=request)
+
+
+def get_shareable_url(request, path, card=None):
+    """
+    Builds the direct shareable URL for QR codes, NFC cards, and copy links.
+    1. If path is a card view (/card/<slug>/) or card is provided, returns the official
+       subdomain URL: e.g. https://<slug>.qkbiz.com/
+    2. Otherwise uses the absolute request URI for system paths.
+    """
+    if card and hasattr(card, 'slug'):
+        return get_card_subdomain_url(card.slug, request=request)
+
+    # Check if this is a card standalone path: /card/<slug>/
+    card_match = re.match(r'^/card/([a-zA-Z0-9_\-\.]+)/?$', path)
+    if card_match:
+        slug = card_match.group(1)
+        if slug not in ('create', 'choose', 'preview', 'delete'):
+            return get_card_subdomain_url(slug, request=request)
+
     host = request.get_host()
     if '127.0.0.1' in host or 'localhost' in host or '0.0.0.0' in host:
         lan_ip = get_lan_ip()
@@ -331,11 +374,13 @@ def landing(request):
     total_websites = Website.objects.count()
     total_industries = industries.count()
 
+    pricing = PlatformPricing.get_pricing()
     context = {
         'industries': industries,
         'total_cards': total_cards,
         'total_websites': total_websites,
         'total_industries': total_industries,
+        'pricing': pricing,
     }
     return render(request, 'landing.html', context)
 
@@ -346,7 +391,8 @@ def card_choose_plan(request):
     1. For Personal Use -> Login / Sign Up -> Card Builder
     2. For Enterprise -> Company Details -> Bundle Selection & Simulated Payment -> Team Card Workspace
     """
-    return render(request, 'card_choose_plan.html')
+    pricing = PlatformPricing.get_pricing()
+    return render(request, 'card_choose_plan.html', {'pricing': pricing})
 
 
 def enterprise_company(request):
@@ -944,9 +990,22 @@ def _get_card_builder_context(active_card, is_edit, request=None):
     yt_url = active_layout.get('youtube_video_url') or (active_card.social_links or {}).get('youtube_video') or ''
     card_yt_video_id = _extract_youtube_id(yt_url)
 
+    share_url = ''
+    qr_data_uri = ''
+    if active_card and active_card.slug and request:
+        try:
+            standalone_path = reverse('card_standalone', kwargs={'slug': active_card.slug})
+            share_url = get_shareable_url(request, standalone_path)
+            qr_target_url = get_qr_target_url(active_card, request=request)
+            qr_data_uri = generate_qr_code_base64(qr_target_url)
+        except Exception:
+            pass
+
     ctx = {
         'card': active_card,
         'is_edit': is_edit,
+        'share_url': share_url,
+        'qr_data_uri': qr_data_uri,
         'card_yt_video_id': card_yt_video_id,
         'card_capabilities_json': card_capabilities_json,
         'card_brands_json': card_brands_json,
@@ -955,6 +1014,7 @@ def _get_card_builder_context(active_card, is_edit, request=None):
         'card_yt_videos_json': card_yt_videos_json,
         'card_section_order_json': card_section_order_json,
         'card_disabled_sections_json': card_disabled_sections_json,
+        'pricing': PlatformPricing.get_pricing(),
     }
     if request and request.user.is_authenticated:
         ctx['enterprise_quota'] = _get_enterprise_quota(request.user)
@@ -1335,10 +1395,11 @@ def card_builder(request, card_id=None):
         }
 
         # Razorpay Demo Payment verification & receipt (for personal cards)
+        pricing_inst = PlatformPricing.get_pricing()
         razorpay_payment_id = (request.POST.get('razorpay_payment_id') or '').strip()
-        razorpay_amount = (request.POST.get('razorpay_amount') or '499').strip()
+        razorpay_amount = (request.POST.get('razorpay_amount') or str(pricing_inst.personal_digital_price)).strip()
         razorpay_method = (request.POST.get('razorpay_method') or 'UPI / Card (Demo)').strip()
-        nfc_ordered = request.POST.get('nfc_ordered', 'false').lower() in ('true', '1') or razorpay_amount == '999'
+        nfc_ordered = request.POST.get('nfc_ordered', 'false').lower() in ('true', '1') or razorpay_amount in (str(pricing_inst.personal_nfc_price), '999')
 
         quota = _get_enterprise_quota(request.user)
         if quota['is_enterprise']:
@@ -1373,7 +1434,7 @@ def card_builder(request, card_id=None):
                     'logo_data': (request.POST.get('nfc_logo_data') or '').strip(),
                     'logo_scale': (request.POST.get('nfc_logo_scale') or '1.0').strip(),
                     'positions': (request.POST.get('nfc_positions') or '{}').strip(),
-                    'status': existing_nfc_status or 'Ready for Printing & Dispatch',
+                    'status': existing_nfc_status or 'Order Placed',
                     'tracking_info': existing_nfc_tracking,
                 }
             elif target_card and target_card.layout_config and 'nfc_card' in target_card.layout_config:
@@ -1396,7 +1457,7 @@ def card_builder(request, card_id=None):
                         'positions': (request.POST.get('nfc_positions') or layout_config['nfc_card'].get('positions', '{}')).strip(),
                     })
         else:
-            paid_amount = 999 if nfc_ordered else 499
+            paid_amount = pricing_inst.personal_nfc_price if nfc_ordered else pricing_inst.personal_digital_price
             plan_label = 'Personal Pro + Physical NFC Card (Yearly)' if nfc_ordered else 'Personal Pro Digital (Yearly)'
             personal_expires_at = timezone.now() + timedelta(days=365)
             if razorpay_payment_id or not target_card:
@@ -1433,7 +1494,7 @@ def card_builder(request, card_id=None):
                         'logo_data': (request.POST.get('nfc_logo_data') or '').strip(),
                         'logo_scale': (request.POST.get('nfc_logo_scale') or '1.0').strip(),
                         'positions': (request.POST.get('nfc_positions') or '{}').strip(),
-                        'status': existing_nfc_status or 'Ready for Printing & Dispatch',
+                        'status': existing_nfc_status or 'Order Placed',
                         'tracking_info': existing_nfc_tracking,
                     }
                 try:
@@ -1494,9 +1555,22 @@ def card_builder(request, card_id=None):
             import urllib.parse
             maps_link_val = 'https://www.google.com/maps/search/?api=1&query=' + urllib.parse.quote_plus(address_val)
 
+        quota = _get_enterprise_quota(request.user)
+        company_obj = None
+        if quota['is_enterprise']:
+            plan = UserPlan.objects.filter(user=request.user).first()
+            ceo_user = plan.enterprise_parent if (plan and plan.enterprise_parent) else request.user
+            ceo_plan = UserPlan.objects.filter(user=ceo_user).first() if ceo_user else plan
+            comp_name = (ceo_plan.company_name if ceo_plan else '') or quota.get('company_name') or ''
+            if comp_name:
+                company_obj = EnterpriseCompany.objects.filter(name=comp_name).first()
+            if not company_obj and ceo_user:
+                company_obj = EnterpriseCompany.objects.filter(email=ceo_user.email).first()
+
         if target_card:
             card = target_card
             card.business_name = business_name
+            card.enterprise_company = company_obj if quota['is_enterprise'] else None
             card.owner_name = request.POST.get('owner_name', '').strip()
             card.tagline = role_title
             card.description = (request.POST.get('bio') or request.POST.get('description') or '').strip()
@@ -1514,6 +1588,7 @@ def card_builder(request, card_id=None):
         else:
             card = BusinessCard(
                 user=request.user if request.user.is_authenticated else None,
+                enterprise_company=company_obj if quota['is_enterprise'] else None,
                 domain=None,
                 business_name=business_name,
                 owner_name=request.POST.get('owner_name', '').strip(),
@@ -1551,8 +1626,37 @@ def card_builder(request, card_id=None):
             custom_slug_clean = slugify(settings_custom_domain.replace('.brandnest.me', '').replace('.qkbiz.com', '').strip())
             if custom_slug_clean and not BusinessCard.objects.filter(slug=custom_slug_clean).exclude(pk=card.pk).exists():
                 card.slug = custom_slug_clean
+        elif card.owner_name and (not card.slug or card.slug.startswith('medowa-global') or card.slug.startswith('business-card')):
+            owner_clean = slugify(card.owner_name)
+            if owner_clean and not BusinessCard.objects.filter(slug=owner_clean).exclude(pk=card.pk).exists():
+                card.slug = owner_clean
 
+        if quota['is_enterprise'] and company_obj:
+            card.enterprise_company = company_obj
+        elif not quota['is_enterprise']:
+            card.enterprise_company = None
         card.save()
+
+        # Auto-create and link platform subdomain Domain record if hosted on a production domain
+        try:
+            base_domain = getattr(settings, 'CARD_BASE_DOMAIN', '').strip()
+            if base_domain:
+                subdomain_str = f"{card.slug}.{base_domain}"
+                dom, _ = Domain.objects.get_or_create(
+                    domain_name=subdomain_str,
+                    defaults={
+                        'domain_type': 'subdomain',
+                        'verification_status': 'verified',
+                        'ssl_status': 'active',
+                        'user': card.user
+                    }
+                )
+                if card.domain != dom:
+                    card.domain = dom
+                    card.save(update_fields=['domain'])
+        except Exception:
+            pass
+
         quota = _get_enterprise_quota(request.user)
 
         if (nfc_ordered or quota.get('has_nfc') or (card.layout_config or {}).get('nfc_card', {}).get('ordered')):
@@ -1565,6 +1669,7 @@ def card_builder(request, card_id=None):
                 standalone_path = reverse('card_standalone', kwargs={'slug': card.slug})
                 share_url = get_shareable_url(request, standalone_path)
                 send_super_admin_nfc_order_notification(card, share_url)
+                send_user_nfc_order_placed_notification(card, share_url)
             except Exception:
                 pass
 
@@ -1585,10 +1690,16 @@ def card_builder(request, card_id=None):
                 )
             return redirect('card_preview', card_id=card.card_id)
 
-        if nfc_ordered:
-            messages.success(request, f'Payment of ₹999 received via Razorpay (Demo)! Your digital business card and custom NFC card for "{card.business_name}" have been generated.')
+        if target_card and nfc_ordered and request.POST.get('razorpay_payment_id'):
+            upgrade_amt = razorpay_amount or str(pricing_inst.personal_nfc_upgrade_price)
+            messages.success(
+                request,
+                f'🎉 Physical Smart NFC Card upgrade successful! Payment of ₹{upgrade_amt} received via Razorpay (Demo). Your custom laser-engraved NFC card for "{card.business_name}" is now in production!'
+            )
+        elif nfc_ordered:
+            messages.success(request, f'Payment of ₹{pricing_inst.personal_nfc_price} received via Razorpay (Demo)! Your digital business card and custom NFC card for "{card.business_name}" have been generated.')
         else:
-            messages.success(request, f'Payment of ₹499 received via Razorpay (Demo)! Your digital business card for "{card.business_name}" is ready.')
+            messages.success(request, f'Payment of ₹{pricing_inst.personal_digital_price} received via Razorpay (Demo)! Your digital business card for "{card.business_name}" is ready.')
         return redirect('card_preview', card_id=card.card_id)
 
     active_card = target_card if target_card else _build_default_card()
@@ -1707,7 +1818,8 @@ def card_preview(request, card_id):
     card = get_object_or_404(BusinessCard, card_id=card_id)
     standalone_path = reverse('card_standalone', kwargs={'slug': card.slug})
     share_url = get_shareable_url(request, standalone_path)
-    qr_data_uri = generate_qr_code_base64(share_url)
+    qr_target_url = get_qr_target_url(card, request=request)
+    qr_data_uri = generate_qr_code_base64(qr_target_url)
     
     yt_url = (card.layout_config or {}).get('youtube_video_url') or (card.social_links or {}).get('youtube_video') or ''
     card_yt_video_id = _extract_youtube_id(yt_url)
@@ -1715,9 +1827,11 @@ def card_preview(request, card_id):
     return render(request, 'card_preview.html', {
         'card': card,
         'share_url': share_url,
+        'qr_target_url': qr_target_url,
         'qr_data_uri': qr_data_uri,
         'timestamp': int(time.time()),
         'card_yt_video_id': card_yt_video_id,
+        'pricing': PlatformPricing.get_pricing(),
     })
 
 
@@ -1729,10 +1843,9 @@ def card_qr_image(request, slug):
     """
     from django.http import HttpResponse
     card = get_object_or_404(BusinessCard, slug=slug)
-    standalone_path = reverse('card_standalone', kwargs={'slug': card.slug})
-    share_url = get_shareable_url(request, standalone_path)
+    qr_target_url = get_qr_target_url(card, request=request)
 
-    png_bytes = generate_qr_code_image_bytes(share_url)
+    png_bytes = generate_qr_code_image_bytes(qr_target_url)
     response = HttpResponse(png_bytes, content_type='image/png')
     response['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
     response['Pragma'] = 'no-cache'
@@ -2244,13 +2357,82 @@ def dashboard_auth_required(view_func):
     return _wrapped_view
 
 
+def _is_enterprise_card(card):
+    """
+    Returns True if the card belongs to an Enterprise company or Enterprise plan.
+    Returns False for Personal cards.
+    """
+    if not card:
+        return False
+    if getattr(card, 'enterprise_company_id', None) is not None:
+        return True
+    if card.user:
+        plan = getattr(card.user, 'card_plan', None)
+        if plan:
+            if plan.plan_type == 'enterprise' or plan.enterprise_parent is not None:
+                return True
+            if plan.plan_type == 'personal':
+                return False
+    receipt = (card.layout_config or {}).get('payment_receipt', {})
+    plan_name = str(receipt.get('plan') or '')
+    if 'enterprise' in plan_name.lower():
+        return True
+    if 'personal' in plan_name.lower():
+        return False
+    return False
+
+
+def get_enterprise_cards_queryset():
+    """
+    Returns QuerySet containing strictly Enterprise cards.
+    """
+    enterprise_user_ids = list(UserPlan.objects.filter(
+        Q(plan_type='enterprise') | Q(enterprise_parent__isnull=False)
+    ).values_list('user_id', flat=True))
+
+    ent_plan_card_ids = [
+        c.id for c in BusinessCard.objects.only('id', 'layout_config')
+        if 'enterprise' in (c.layout_config or {}).get('payment_receipt', {}).get('plan', '').lower()
+    ]
+
+    q_filter = Q(enterprise_company__isnull=False)
+    if enterprise_user_ids:
+        q_filter |= Q(user_id__in=enterprise_user_ids)
+    if ent_plan_card_ids:
+        q_filter |= Q(id__in=ent_plan_card_ids)
+
+    return BusinessCard.objects.filter(q_filter).distinct()
+
+
+def get_personal_cards_queryset():
+    """
+    Returns QuerySet containing strictly Personal cards.
+    """
+    enterprise_user_ids = list(UserPlan.objects.filter(
+        Q(plan_type='enterprise') | Q(enterprise_parent__isnull=False)
+    ).values_list('user_id', flat=True))
+
+    qs = BusinessCard.objects.filter(enterprise_company__isnull=True)
+    if enterprise_user_ids:
+        qs = qs.exclude(user_id__in=enterprise_user_ids)
+
+    ent_plan_card_ids = [
+        c.id for c in qs.only('id', 'layout_config')
+        if 'enterprise' in (c.layout_config or {}).get('payment_receipt', {}).get('plan', '').lower()
+    ]
+    if ent_plan_card_ids:
+        qs = qs.exclude(id__in=ent_plan_card_ids)
+
+    return qs.distinct()
+
+
 @dashboard_auth_required
 def dashboard_overview(request):
     """
     High-level dashboard overview showing page views, clicks, CTR, leads,
-    activity graph over the last 7 days, and top performing cards.
+    activity graph over the last 7 days, and top performing cards for Personal users only.
     """
-    cards = BusinessCard.objects.all()
+    cards = get_personal_cards_queryset()
     selected_user_id = request.GET.get('user', '')
     if selected_user_id:
         cards = cards.filter(user_id=selected_user_id)
@@ -2266,7 +2448,33 @@ def dashboard_overview(request):
     ctr = f"{ctr_val}%"
 
     top_cards = cards.order_by('-views_count')[:10]
-    users_list = User.objects.all()
+    enterprise_user_ids = UserPlan.objects.filter(
+        Q(plan_type='enterprise') | Q(enterprise_parent__isnull=False)
+    ).values_list('user_id', flat=True)
+    users_list = User.objects.filter(cards__in=cards).distinct().exclude(id__in=enterprise_user_ids)
+
+    # New Business: Recent personal business cards and NFC hardware orders
+    pricing_inst = PlatformPricing.get_pricing()
+    recent_business = []
+    for c in cards.order_by('-created_at')[:15]:
+        cfg = c.layout_config or {}
+        nfc = cfg.get('nfc_card') or {}
+        has_nfc = _has_nfc_hardware(c)
+        receipt = cfg.get('payment_receipt', {})
+        plan_name = receipt.get('plan') or ('Personal Pro + Physical NFC Card (Yearly)' if has_nfc else 'Personal Pro Digital (Yearly)')
+        amount = receipt.get('amount') or (pricing_inst.personal_nfc_price if has_nfc else pricing_inst.personal_digital_price)
+        nfc_status = nfc.get('status') or ('Ready for Dispatch' if has_nfc else None)
+        recent_business.append({
+            'card': c,
+            'has_nfc': has_nfc,
+            'plan_name': plan_name,
+            'amount': amount,
+            'nfc_status': nfc_status,
+            'nfc_theme': nfc.get('theme', 'obsidian_black'),
+            'created_at': c.created_at,
+        })
+    new_business_count = cards.count()
+    new_nfc_count = sum(1 for b in recent_business if b['has_nfc'])
 
     now = timezone.now()
     chart_labels = []
@@ -2306,13 +2514,17 @@ def dashboard_overview(request):
         'chart_views_json': json.dumps(chart_views),
         'chart_clicks_json': json.dumps(chart_clicks),
         'chart_leads_json': json.dumps(chart_leads),
+        'recent_business': recent_business,
+        'new_business_count': new_business_count,
+        'new_nfc_count': new_nfc_count,
+        'total_personal_cards': cards.count(),
     }
     return render(request, 'dashboard/overview.html', context)
 
 
 @dashboard_auth_required
 def dashboard_cards(request):
-    cards = BusinessCard.objects.all().order_by('-created_at')
+    cards = get_personal_cards_queryset().order_by('-created_at')
     return render(request, 'dashboard/cards.html', {
         'active_menu': 'cards',
         'cards': cards,
@@ -2321,7 +2533,7 @@ def dashboard_cards(request):
 
 @dashboard_auth_required
 def dashboard_qr_codes(request):
-    cards = BusinessCard.objects.all().order_by('-created_at')
+    cards = get_personal_cards_queryset().order_by('-created_at')
     return render(request, 'dashboard/qr_codes.html', {
         'active_menu': 'qr_codes',
         'cards': cards,
@@ -2330,7 +2542,8 @@ def dashboard_qr_codes(request):
 
 @dashboard_auth_required
 def dashboard_contacts(request):
-    contacts = CardLead.objects.select_related('card').all().order_by('-created_at')
+    personal_cards = get_personal_cards_queryset()
+    contacts = CardLead.objects.filter(card__in=personal_cards).select_related('card').order_by('-created_at')
     return render(request, 'dashboard/contacts.html', {
         'active_menu': 'contacts',
         'contacts': contacts,
@@ -2355,26 +2568,13 @@ def dashboard_contacts_add(request):
 
 @dashboard_auth_required
 def dashboard_messages(request):
-    messages_list = CardLead.objects.filter(message__gt='').select_related('card').order_by('-created_at')
+    personal_cards = get_personal_cards_queryset()
+    messages_list = CardLead.objects.filter(card__in=personal_cards, message__gt='').select_related('card').order_by('-created_at')
     return render(request, 'dashboard/messages.html', {
         'active_menu': 'messages',
         'messages_list': messages_list,
     })
 
-
-def _is_enterprise_card(card):
-    """
-    Returns True if the card belongs to an Enterprise company or Enterprise plan.
-    """
-    if getattr(card, 'enterprise_company_id', None) is not None:
-        return True
-    if card.user and hasattr(card.user, 'card_plan') and card.user.card_plan.plan_type == 'enterprise':
-        return True
-    receipt = (card.layout_config or {}).get('payment_receipt', {})
-    plan_name = str(receipt.get('plan') or '')
-    if 'enterprise' in plan_name.lower():
-        return True
-    return False
 
 
 def _has_nfc_hardware(card):
@@ -2388,7 +2588,8 @@ def _has_nfc_hardware(card):
     receipt = cfg.get('payment_receipt', {})
     amount = receipt.get('amount')
     plan = str(receipt.get('plan') or '')
-    if amount == 999 or 'nfc' in plan.lower():
+    pricing_nfc = PlatformPricing.get_pricing().personal_nfc_price
+    if amount in (999, pricing_nfc) or 'nfc' in plan.lower():
         return True
     return False
 
@@ -2402,12 +2603,15 @@ def dashboard_nfc(request):
     """
     search_q = request.GET.get('q', '').strip()
     status_filter = request.GET.get('status', '').strip()
+    filter_mode = request.GET.get('filter', '').strip().lower()
+    is_filtering_new = (filter_mode == 'new') or (status_filter.lower() in ('new', 'new nfc orders', 'new_orders'))
 
-    all_cards = BusinessCard.objects.all().order_by('-created_at')
+    all_cards = get_personal_cards_queryset().order_by('-created_at')
     personal_nfc_orders = []
 
     # Compute status metrics across all Personal NFC orders
     total_orders = 0
+    new_orders_count = 0
     in_production = 0
     ready_dispatch = 0
     shipped_count = 0
@@ -2428,19 +2632,40 @@ def dashboard_nfc(request):
         c.share_url_full = get_shareable_url(request, standalone_path)
         c.nfc_data = nfc
         c.receipt_data = receipt
-        current_status = nfc.get('status', 'Ready for Dispatch')
+        raw_status = (nfc.get('status') or '').strip()
+        if not raw_status:
+            raw_status = 'Order Placed'
+        current_status = raw_status
         c.current_status = current_status
         c.tracking_info = nfc.get('tracking_info', '')
 
-        total_orders += 1
-        if current_status in ('Printing & Engraving', 'Order Placed'):
+        # Exactly ONE stage per order so it moves between tabs when updated:
+        if current_status in ('Order Placed', 'New Order', 'Ready for Printing & Dispatch', 'Ready for Printing'):
+            c.stage = 'new'
+            is_new_order = True
+            new_orders_count += 1
+        elif current_status in ('Printing & Engraving', 'In Production', 'Printing'):
+            c.stage = 'production'
+            is_new_order = False
             in_production += 1
         elif current_status == 'Ready for Dispatch':
+            c.stage = 'ready_dispatch'
+            is_new_order = False
             ready_dispatch += 1
         elif current_status == 'Shipped':
+            c.stage = 'shipped'
+            is_new_order = False
             shipped_count += 1
         elif current_status == 'Delivered':
+            c.stage = 'delivered'
+            is_new_order = False
             delivered_count += 1
+        else:
+            c.stage = 'other'
+            is_new_order = False
+
+        c.is_new_order = is_new_order
+        total_orders += 1
 
         # Search filter
         if search_q:
@@ -2457,14 +2682,35 @@ def dashboard_nfc(request):
             if not matches:
                 continue
 
-        # Status filter
-        if status_filter and current_status != status_filter:
-            continue
+        # New orders filter vs standard status filter
+        if is_filtering_new:
+            if not is_new_order:
+                continue
+        elif status_filter:
+            sf_low = status_filter.strip().lower()
+            if sf_low in ('new', 'order placed', 'new nfc orders', 'new_orders'):
+                if not is_new_order:
+                    continue
+            elif sf_low in ('printing & engraving', 'in production', 'printing'):
+                if current_status not in ('Printing & Engraving', 'In Production', 'Printing'):
+                    continue
+            elif sf_low == 'ready for dispatch':
+                if current_status != 'Ready for Dispatch':
+                    continue
+            elif sf_low == 'shipped':
+                if current_status != 'Shipped':
+                    continue
+            elif sf_low == 'delivered':
+                if current_status != 'Delivered':
+                    continue
+            elif current_status.lower() != sf_low:
+                continue
 
         personal_nfc_orders.append(c)
 
     stats = {
         'total': total_orders,
+        'new_orders': new_orders_count,
         'in_production': in_production,
         'ready_dispatch': ready_dispatch,
         'shipped': shipped_count,
@@ -2487,6 +2733,8 @@ def dashboard_nfc(request):
         'stats': stats,
         'search_q': search_q,
         'status_filter': status_filter,
+        'filter_mode': filter_mode,
+        'is_filtering_new': is_filtering_new,
         'status_options': status_options,
         'nfc_tags': nfc_tags,
     })
@@ -2524,6 +2772,9 @@ def dashboard_nfc_status_update(request, card_id):
         request,
         f"Personal NFC card status for '{card.business_name}' updated to '{new_status}' and client notified!"
     )
+    next_url = request.POST.get('next') or request.META.get('HTTP_REFERER')
+    if next_url and ('/dashboard/nfc' in next_url or next_url.startswith('?')):
+        return redirect(next_url)
     return redirect('dashboard_nfc')
 
 
@@ -2563,7 +2814,7 @@ def dashboard_nfc_toggle_active(request, tag_id):
 
 @dashboard_auth_required
 def dashboard_wallet_pass(request):
-    cards = BusinessCard.objects.all()
+    cards = get_personal_cards_queryset().order_by('-created_at')
     selected_card_id = request.GET.get('card')
     selected_card = cards.filter(id=selected_card_id).first() if selected_card_id else cards.first()
     return render(request, 'dashboard/wallet_pass.html', {
@@ -2575,7 +2826,7 @@ def dashboard_wallet_pass(request):
 
 @dashboard_auth_required
 def dashboard_analytics(request):
-    cards = BusinessCard.objects.all()
+    cards = get_personal_cards_queryset().order_by('-created_at')
     selected_card_id = request.GET.get('card')
     selected_card = cards.filter(id=selected_card_id).first() if selected_card_id else cards.first()
 
@@ -2615,8 +2866,11 @@ def dashboard_analytics(request):
 
 @dashboard_auth_required
 def dashboard_teams(request):
-    teams = Team.objects.prefetch_related('members').all()
-    all_users = User.objects.all()
+    teams = Team.objects.filter(enterprise_company__isnull=True).prefetch_related('members').order_by('name')
+    enterprise_user_ids = UserPlan.objects.filter(
+        Q(plan_type='enterprise') | Q(enterprise_parent__isnull=False)
+    ).values_list('user_id', flat=True)
+    all_users = User.objects.exclude(id__in=enterprise_user_ids).filter(is_superuser=False, is_staff=False).order_by('username')
     return render(request, 'dashboard/teams.html', {
         'active_menu': 'teams',
         'teams': teams,
@@ -2650,7 +2904,12 @@ def dashboard_teams_rename(request, team_id):
 
 @dashboard_auth_required
 def dashboard_users(request):
-    users_list = User.objects.prefetch_related('cards', 'teams').all().order_by('-date_joined')
+    enterprise_user_ids = UserPlan.objects.filter(
+        Q(plan_type='enterprise') | Q(enterprise_parent__isnull=False)
+    ).values_list('user_id', flat=True)
+    users_list = User.objects.exclude(id__in=enterprise_user_ids).filter(
+        is_superuser=False, is_staff=False
+    ).prefetch_related('cards', 'teams').order_by('-date_joined')
     total_users_count = users_list.count()
     now = timezone.now()
     users_today = users_list.filter(date_joined__date=now.date()).count()
@@ -2658,7 +2917,7 @@ def dashboard_users(request):
     users_month = users_list.filter(date_joined__gte=first_of_month).count()
     seven_days_ago = now - timedelta(days=7)
     users_week = users_list.filter(date_joined__gte=seven_days_ago).count()
-    teams = Team.objects.all()
+    teams = Team.objects.filter(enterprise_company__isnull=True)
 
     return render(request, 'dashboard/users.html', {
         'active_menu': 'users',
@@ -2698,7 +2957,8 @@ def dashboard_users_add(request):
 
 @dashboard_auth_required
 def dashboard_leads(request):
-    leads = CardLead.objects.select_related('card').all().order_by('-created_at')
+    personal_cards = get_personal_cards_queryset()
+    leads = CardLead.objects.filter(card__in=personal_cards).select_related('card').order_by('-created_at')
     total_leads_count = leads.count()
     now = timezone.now()
     leads_today = leads.filter(created_at__date=now.date()).count()
@@ -2719,7 +2979,8 @@ def dashboard_leads(request):
 
 @dashboard_auth_required
 def dashboard_leads_export(request):
-    leads = CardLead.objects.select_related('card').all().order_by('-created_at')
+    personal_cards = get_personal_cards_queryset()
+    leads = CardLead.objects.filter(card__in=personal_cards).select_related('card').order_by('-created_at')
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="brandnest_leads.csv"'
     writer = csv.writer(response)
@@ -2808,7 +3069,7 @@ def dashboard_settings_save_branding(request):
 
 @dashboard_auth_required
 def dashboard_virtual_bg(request):
-    cards = BusinessCard.objects.all()
+    cards = get_personal_cards_queryset().order_by('-created_at')
     selected_card_id = request.GET.get('card')
     selected_card = cards.filter(id=selected_card_id).first() if selected_card_id else cards.first()
     return render(request, 'dashboard/virtual_bg.html', {
@@ -2820,7 +3081,7 @@ def dashboard_virtual_bg(request):
 
 @dashboard_auth_required
 def dashboard_email_sig(request):
-    cards = BusinessCard.objects.all()
+    cards = get_personal_cards_queryset().order_by('-created_at')
     selected_card_id = request.GET.get('card')
     selected_card = cards.filter(id=selected_card_id).first() if selected_card_id else cards.first()
     return render(request, 'dashboard/email_sig.html', {
@@ -2863,9 +3124,7 @@ def enterprise_admin_overview(request):
     companies = EnterpriseCompany.objects.all().order_by('-created_at')
     total_companies = companies.count()
     
-    enterprise_cards = BusinessCard.objects.filter(
-        Q(enterprise_company__isnull=False) | Q(user__card_plan__plan_type='enterprise')
-    ).distinct()
+    enterprise_cards = get_enterprise_cards_queryset()
     total_cards_used = enterprise_cards.count()
     
     total_capacity = companies.aggregate(Sum('card_quota'))['card_quota__sum'] or 0
@@ -2874,7 +3133,24 @@ def enterprise_admin_overview(request):
     capacity_usage_pct = min(100, int((total_cards_used / max(1, total_capacity)) * 100)) if total_capacity else 0
     total_scans = enterprise_cards.aggregate(Sum('views_count'))['views_count__sum'] or 0
     total_leads = CardLead.objects.filter(card__in=enterprise_cards).count()
-    
+
+    # New Business: Recent enterprise employee cards and corporate NFC orders
+    recent_enterprise_cards = []
+    for c in enterprise_cards.order_by('-created_at')[:15]:
+        cfg = c.layout_config or {}
+        nfc = cfg.get('nfc_card') or {}
+        has_nfc = bool(nfc.get('ordered') or nfc.get('status'))
+        recent_enterprise_cards.append({
+            'card': c,
+            'company': c.enterprise_company,
+            'has_nfc': has_nfc,
+            'role': c.tagline or (cfg.get('role_title') or 'Team Member'),
+            'nfc_status': nfc.get('status') or ('Ready for Printing' if has_nfc else 'Active'),
+            'nfc_theme': nfc.get('theme', 'obsidian_black'),
+            'created_at': c.created_at,
+        })
+    new_ent_nfc_count = sum(1 for ec in recent_enterprise_cards if ec['has_nfc'])
+
     context = {
         'active_ent_menu': 'overview',
         'companies': companies[:8],
@@ -2885,6 +3161,9 @@ def enterprise_admin_overview(request):
         'total_revenue': total_revenue,
         'total_scans': total_scans,
         'total_leads': total_leads,
+        'recent_enterprise_cards': recent_enterprise_cards,
+        'new_ent_nfc_count': new_ent_nfc_count,
+        'new_enterprise_business_count': total_cards_used,
         'python_version': f"Python {sys.version.split()[0]}",
         'django_version': django.get_version(),
         'lan_ip': get_lan_ip(),
@@ -2992,7 +3271,7 @@ def enterprise_admin_company_toggle(request, company_id):
 
 @dashboard_auth_required
 def enterprise_admin_cards(request):
-    cards = BusinessCard.objects.all().order_by('-created_at')
+    cards = get_enterprise_cards_queryset().order_by('-created_at')
     companies = EnterpriseCompany.objects.all().order_by('name')
     selected_company_id = request.GET.get('company', '').strip()
     search_query = request.GET.get('q', '').strip()
@@ -3061,7 +3340,7 @@ def enterprise_admin_card_issue(request):
 
 @dashboard_auth_required
 def enterprise_admin_teams(request):
-    teams = Team.objects.prefetch_related('members').all().order_by('-created_at')
+    teams = Team.objects.filter(enterprise_company__isnull=False).prefetch_related('members').order_by('-created_at')
     companies = EnterpriseCompany.objects.all().order_by('name')
     return render(request, 'enterprise_admin/teams.html', {
         'active_ent_menu': 'teams',
@@ -3090,7 +3369,8 @@ def enterprise_admin_teams_add(request):
 
 @dashboard_auth_required
 def enterprise_admin_leads(request):
-    leads = CardLead.objects.select_related('card', 'card__enterprise_company').all().order_by('-created_at')
+    enterprise_cards = get_enterprise_cards_queryset()
+    leads = CardLead.objects.filter(card__in=enterprise_cards).select_related('card', 'card__enterprise_company').order_by('-created_at')
     companies = EnterpriseCompany.objects.all().order_by('name')
     selected_company_id = request.GET.get('company', '').strip()
     qualification_filter = request.GET.get('qualification', '').strip()
@@ -3119,7 +3399,8 @@ def enterprise_admin_leads(request):
 
 @dashboard_auth_required
 def enterprise_admin_leads_export(request):
-    leads = CardLead.objects.select_related('card', 'card__enterprise_company').all().order_by('-created_at')
+    enterprise_cards = get_enterprise_cards_queryset()
+    leads = CardLead.objects.filter(card__in=enterprise_cards).select_related('card', 'card__enterprise_company').order_by('-created_at')
     selected_company_id = request.GET.get('company', '').strip()
     if selected_company_id:
         leads = leads.filter(card__enterprise_company_id=selected_company_id)
@@ -3149,9 +3430,12 @@ def enterprise_admin_leads_export(request):
 @dashboard_auth_required
 def enterprise_admin_billing(request):
     companies = EnterpriseCompany.objects.all().order_by('-created_at')
+    pricing = PlatformPricing.get_pricing()
     return render(request, 'enterprise_admin/billing.html', {
         'active_ent_menu': 'billing',
         'companies': companies,
+        'bundles': pricing.get_enterprise_bundles(),
+        'pricing': pricing,
     })
 
 
@@ -3167,8 +3451,7 @@ def enterprise_admin_plans(request):
 
     # 1. Personal Plans - sync any personal users who created cards directly
     existing_user_ids = set(UserPlan.objects.filter(plan_type='personal').values_list('user_id', flat=True))
-    cards_without_plan = BusinessCard.objects.filter(
-        enterprise_company__isnull=True,
+    cards_without_plan = get_personal_cards_queryset().filter(
         user__isnull=False
     ).exclude(user_id__in=existing_user_ids)
     for c in cards_without_plan:
@@ -3301,9 +3584,19 @@ def enterprise_admin_nfc_orders(request):
     """
     search_q = request.GET.get('q', '').strip()
     status_filter = request.GET.get('status', '').strip()
+    filter_mode = request.GET.get('filter', '').strip().lower()
+    is_filtering_new = (filter_mode == 'new') or (status_filter.lower() in ('new', 'new nfc orders', 'new_orders'))
 
-    all_cards = BusinessCard.objects.all().order_by('-created_at')
+    all_cards = get_enterprise_cards_queryset().order_by('-created_at')
     nfc_orders = []
+
+    # Compute status metrics across all Enterprise NFC orders
+    total_orders = 0
+    new_orders_count = 0
+    in_production = 0
+    ready_dispatch = 0
+    shipped_count = 0
+    delivered_count = 0
 
     for c in all_cards:
         if not _is_enterprise_card(c):
@@ -3320,9 +3613,40 @@ def enterprise_admin_nfc_orders(request):
         c.share_url_full = get_shareable_url(request, standalone_path)
         c.nfc_data = nfc
         c.receipt_data = receipt
-        current_status = nfc.get('status', 'Ready for Dispatch')
+        raw_status = (nfc.get('status') or '').strip()
+        if not raw_status:
+            raw_status = 'Order Placed'
+        current_status = raw_status
         c.current_status = current_status
         c.tracking_info = nfc.get('tracking_info', '')
+
+        # Exactly ONE stage per order so it moves between tabs when updated:
+        if current_status in ('Order Placed', 'New Order', 'Ready for Printing & Dispatch', 'Ready for Printing'):
+            c.stage = 'new'
+            is_new_order = True
+            new_orders_count += 1
+        elif current_status in ('Printing & Engraving', 'In Production', 'Printing'):
+            c.stage = 'production'
+            is_new_order = False
+            in_production += 1
+        elif current_status == 'Ready for Dispatch':
+            c.stage = 'ready_dispatch'
+            is_new_order = False
+            ready_dispatch += 1
+        elif current_status == 'Shipped':
+            c.stage = 'shipped'
+            is_new_order = False
+            shipped_count += 1
+        elif current_status == 'Delivered':
+            c.stage = 'delivered'
+            is_new_order = False
+            delivered_count += 1
+        else:
+            c.stage = 'other'
+            is_new_order = False
+
+        c.is_new_order = is_new_order
+        total_orders += 1
 
         # Search filter
         if search_q:
@@ -3339,39 +3663,35 @@ def enterprise_admin_nfc_orders(request):
             if not matches:
                 continue
 
-        # Status filter
-        if status_filter and current_status != status_filter:
-            continue
+        # New orders filter vs standard status filter
+        if is_filtering_new:
+            if not is_new_order:
+                continue
+        elif status_filter:
+            sf_low = status_filter.strip().lower()
+            if sf_low in ('new', 'order placed', 'new nfc orders', 'new_orders'):
+                if not is_new_order:
+                    continue
+            elif sf_low in ('printing & engraving', 'in production', 'printing'):
+                if current_status not in ('Printing & Engraving', 'In Production', 'Printing'):
+                    continue
+            elif sf_low == 'ready for dispatch':
+                if current_status != 'Ready for Dispatch':
+                    continue
+            elif sf_low == 'shipped':
+                if current_status != 'Shipped':
+                    continue
+            elif sf_low == 'delivered':
+                if current_status != 'Delivered':
+                    continue
+            elif current_status.lower() != sf_low:
+                continue
 
         nfc_orders.append(c)
 
-    # Compute status metrics across all Enterprise NFC orders
-    total_orders = 0
-    in_production = 0
-    ready_dispatch = 0
-    shipped_count = 0
-    delivered_count = 0
-
-    for c in all_cards:
-        if not _is_enterprise_card(c):
-            continue
-        if not _has_nfc_hardware(c):
-            continue
-        cfg = c.layout_config or {}
-        nfc = cfg.get('nfc_card') or {}
-        total_orders += 1
-        st = nfc.get('status', 'Ready for Dispatch')
-        if st in ('Printing & Engraving', 'Order Placed'):
-            in_production += 1
-        elif st == 'Ready for Dispatch':
-            ready_dispatch += 1
-        elif st == 'Shipped':
-            shipped_count += 1
-        elif st == 'Delivered':
-            delivered_count += 1
-
     stats = {
         'total': total_orders,
+        'new_orders': new_orders_count,
         'in_production': in_production,
         'ready_dispatch': ready_dispatch,
         'shipped': shipped_count,
@@ -3392,6 +3712,8 @@ def enterprise_admin_nfc_orders(request):
         'stats': stats,
         'search_q': search_q,
         'status_filter': status_filter,
+        'filter_mode': filter_mode,
+        'is_filtering_new': is_filtering_new,
         'status_options': status_options,
     })
 
@@ -3428,6 +3750,9 @@ def enterprise_admin_nfc_status_update(request, card_id):
         request,
         f"NFC card status for '{card.business_name}' updated to '{new_status}' and client notified!"
     )
+    next_url = request.POST.get('next') or request.META.get('HTTP_REFERER')
+    if next_url and ('/enterprise-admin/nfc' in next_url or next_url.startswith('?')):
+        return redirect(next_url)
     return redirect('enterprise_admin_nfc_orders')
 
 
@@ -3440,9 +3765,12 @@ def enterprise_admin_nfc_print_sheet(request, card_id):
     card = get_object_or_404(BusinessCard, card_id=card_id)
     standalone_path = reverse('card_standalone', kwargs={'slug': card.slug})
     share_url = get_shareable_url(request, standalone_path)
-    qr_data_uri = generate_qr_code_base64(share_url)
+    qr_target_url = get_qr_target_url(card, request=request)
+    qr_data_uri = generate_qr_code_base64(qr_target_url)
 
     nfc = (card.layout_config or {}).get('nfc_card', {})
+    autoprint = request.GET.get('autoprint', '') == '1'
+    back_url = reverse('enterprise_admin_nfc_orders') if _is_enterprise_card(card) else reverse('dashboard_nfc')
 
     return render(request, 'enterprise_admin/nfc_print_sheet.html', {
         'card': card,
@@ -3450,7 +3778,75 @@ def enterprise_admin_nfc_print_sheet(request, card_id):
         'share_url': share_url,
         'qr_data_uri': qr_data_uri,
         'now': timezone.now(),
+        'autoprint': autoprint,
+        'back_url': back_url,
     })
+
+
+@dashboard_auth_required
+def admin_pricing(request):
+    """
+    Super Admin management view to inspect and adjust platform rates for:
+    - Personal Digital Business Cards
+    - Personal NFC Physical Cards
+    - Enterprise Digital Bundles (5, 10, 15)
+    - Enterprise NFC Physical Bundles (5, 10, 15)
+    - Enterprise Team Slot Top-up
+    All changes immediately sync live across the entire application.
+    """
+    is_enterprise_admin = request.path.startswith('/enterprise-admin')
+    pricing = PlatformPricing.get_pricing()
+
+    if request.method == 'POST':
+        action = request.POST.get('action', 'save')
+        if action == 'reset':
+            pricing.personal_digital_price = 499
+            pricing.personal_nfc_price = 999
+            pricing.enterprise_5_digital_price = 999
+            pricing.enterprise_10_digital_price = 1799
+            pricing.enterprise_15_digital_price = 2499
+            pricing.enterprise_5_nfc_price = 2499
+            pricing.enterprise_10_nfc_price = 4499
+            pricing.enterprise_15_nfc_price = 5999
+            pricing.enterprise_extra_card_price = 199
+            pricing.save()
+            messages.success(request, "Pricing configuration successfully reset to system defaults.")
+        else:
+            try:
+                def parse_price(val, default):
+                    try:
+                        v = int(val)
+                        return v if v >= 0 else default
+                    except (ValueError, TypeError):
+                        return default
+
+                pricing.personal_digital_price = parse_price(request.POST.get('personal_digital_price'), pricing.personal_digital_price)
+                pricing.personal_nfc_price = parse_price(request.POST.get('personal_nfc_price'), pricing.personal_nfc_price)
+                pricing.enterprise_5_digital_price = parse_price(request.POST.get('enterprise_5_digital_price'), pricing.enterprise_5_digital_price)
+                pricing.enterprise_10_digital_price = parse_price(request.POST.get('enterprise_10_digital_price'), pricing.enterprise_10_digital_price)
+                pricing.enterprise_15_digital_price = parse_price(request.POST.get('enterprise_15_digital_price'), pricing.enterprise_15_digital_price)
+                pricing.enterprise_5_nfc_price = parse_price(request.POST.get('enterprise_5_nfc_price'), pricing.enterprise_5_nfc_price)
+                pricing.enterprise_10_nfc_price = parse_price(request.POST.get('enterprise_10_nfc_price'), pricing.enterprise_10_nfc_price)
+                pricing.enterprise_15_nfc_price = parse_price(request.POST.get('enterprise_15_nfc_price'), pricing.enterprise_15_nfc_price)
+                pricing.enterprise_extra_card_price = parse_price(request.POST.get('enterprise_extra_card_price'), pricing.enterprise_extra_card_price)
+                pricing.save()
+                messages.success(request, "Pricing configuration updated and published across all plans successfully!")
+            except Exception as e:
+                messages.error(request, f"Error saving pricing: {e}")
+
+        redirect_view = 'enterprise_admin_pricing' if is_enterprise_admin else 'dashboard_pricing'
+        return redirect(redirect_view)
+
+    template_name = 'enterprise_admin/pricing.html' if is_enterprise_admin else 'dashboard/pricing.html'
+    context = {
+        'pricing': pricing,
+        'bundles': pricing.get_enterprise_bundles(),
+        'is_enterprise_admin': is_enterprise_admin,
+        'active_menu': 'pricing',
+        'active_ent_menu': 'pricing',
+    }
+    return render(request, template_name, context)
+
 
 
 

@@ -28,6 +28,10 @@
     <a href="{% url 'dashboard_overview' %}" class="btn btn-sm btn-outline-secondary rounded-pill" style="font-size:12.5px;padding:6px 14px;">
       Clear Filters
     </a>
+
+    <a href="#newBusinessSection" class="btn btn-sm btn-success rounded-pill px-3 py-1.5 fw-bold d-inline-flex align-items-center gap-1.5 text-white shadow-sm" style="font-size:12.5px;">
+      <i class="bi bi-stars"></i> New Business ({{ new_business_count|default:0 }})
+    </a>
   </div>
 </div>
 
@@ -134,6 +138,124 @@
       {% endif %}
     </div>
   </div>
+</div>
+
+<!-- New Business & Recent Generations Section (Personal Super Admin) -->
+<div class="card border-0 shadow-sm p-4 mb-4 rounded-4" style="background:#FFFFFF;border:1px solid #E2E8F0 !important;" id="newBusinessSection">
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3 pb-3 border-bottom border-light-subtle">
+    <div>
+      <div class="d-flex align-items-center gap-2 mb-1">
+        <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1 rounded-pill fw-bold" style="font-size:11px;">
+          <i class="bi bi-stars"></i> NEW BUSINESS PIPELINE
+        </span>
+        <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1 rounded-pill fw-bold" style="font-size:11px;">
+          <i class="bi bi-broadcast"></i> {{ new_nfc_count|default:0 }} Physical NFC Orders
+        </span>
+      </div>
+      <h3 style="font-size:20px;font-weight:800;color:#0F172A;margin:0 0 2px;">
+        New Business: Recent Cards &amp; NFC Orders
+      </h3>
+      <p style="font-size:13px;color:#64748B;margin:0;">
+        Real-time feed of newly registered personal business cards and contactless physical hardware orders placed by clients.
+      </p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <a href="{% url 'dashboard_nfc' %}" class="btn btn-sm btn-dark rounded-pill px-3 py-1.5 fw-semibold d-inline-flex align-items-center gap-1.5">
+        <i class="bi bi-broadcast-pin text-info"></i> View All NFC Orders ({{ new_nfc_count|default:0 }})
+      </a>
+      <a href="{% url 'dashboard_cards' %}" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1.5 fw-semibold d-inline-flex align-items-center gap-1.5">
+        <i class="bi bi-person-vcard"></i> All Cards ({{ total_personal_cards|default:new_business_count|default:0 }})
+      </a>
+    </div>
+  </div>
+
+  {% if recent_business %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0" style="font-size:13.5px;">
+      <thead class="table-light text-secondary" style="font-size:12px;text-transform:uppercase;letter-spacing:0.04em;">
+        <tr>
+          <th>Client &amp; Business</th>
+          <th>Product / Plan</th>
+          <th>Payment</th>
+          <th>NFC Status</th>
+          <th>Generated On</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in recent_business %}
+        <tr>
+          <td>
+            <div class="d-flex align-items-center gap-2.5">
+              <div style="width:38px;height:38px;border-radius:10px;background:#F1F5F9;display:grid;place-items:center;font-weight:800;color:#0F172A;overflow:hidden;flex-shrink:0;">
+                {% if item.card.logo %}
+                  <img src="{{ item.card.logo.url }}" alt="Logo" style="width:100%;height:100%;object-fit:cover;">
+                {% else %}
+                  {{ item.card.business_name|slice:":2"|upper }}
+                {% endif %}
+              </div>
+              <div>
+                <strong style="color:#0F172A;display:block;">{{ item.card.business_name }}</strong>
+                <small class="text-muted">{{ item.card.owner_name|default:"Client" }} &bull; <code>{{ item.card.card_id }}</code></small>
+              </div>
+            </div>
+          </td>
+          <td>
+            {% if item.has_nfc %}
+              <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1 rounded-pill fw-bold">
+                <i class="bi bi-broadcast me-1"></i> Business Card + NFC Hardware
+              </span>
+            {% else %}
+              <span class="badge bg-success-subtle text-success border border-success-subtle px-2.5 py-1 rounded-pill fw-bold">
+                <i class="bi bi-phone me-1"></i> Digital Business Card
+              </span>
+            {% endif %}
+          </td>
+          <td>
+            <span class="fw-bold text-dark">₹{{ item.amount }}</span>
+            <small class="d-block text-success" style="font-size:11px;">Paid via Razorpay</small>
+          </td>
+          <td>
+            {% if item.has_nfc %}
+              {% if item.nfc_status == 'Shipped' %}
+                <span class="badge bg-warning text-dark px-2.5 py-1 rounded-pill fw-bold"><i class="bi bi-truck me-1"></i> Shipped</span>
+              {% elif item.nfc_status == 'Delivered' %}
+                <span class="badge bg-success text-white px-2.5 py-1 rounded-pill fw-bold"><i class="bi bi-check2-circle me-1"></i> Delivered</span>
+              {% else %}
+                <span class="badge bg-info-subtle text-info border border-info-subtle px-2.5 py-1 rounded-pill fw-bold">
+                  <i class="bi bi-box-seam me-1"></i> {{ item.nfc_status|default:"Ready for Dispatch" }}
+                </span>
+              {% endif %}
+            {% else %}
+              <span class="text-muted small">&mdash; Digital Only</span>
+            {% endif %}
+          </td>
+          <td class="text-secondary small">
+            {{ item.created_at|date:"d M Y, h:i A" }}
+          </td>
+          <td class="text-end">
+            <div class="d-inline-flex gap-1.5">
+              <a href="{% url 'card_standalone' slug=item.card.slug %}" target="_blank" class="btn btn-sm btn-outline-secondary rounded-pill px-2.5 py-1" title="View live card">
+                <i class="bi bi-eye"></i> View Card
+              </a>
+              {% if item.has_nfc %}
+              <a href="{% url 'dashboard_nfc' %}?q={{ item.card.card_id }}" class="btn btn-sm btn-dark rounded-pill px-2.5 py-1" title="Inspect NFC Order">
+                <i class="bi bi-gear-wide-connected text-info"></i> NFC Order
+              </a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="text-center py-4 text-muted">
+    <i class="bi bi-inbox fs-2 d-block mb-1 text-secondary"></i>
+    No business cards generated yet.
+  </div>
+  {% endif %}
 </div>
 {% endblock %}
 

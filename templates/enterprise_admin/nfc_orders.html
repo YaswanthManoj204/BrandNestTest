@@ -90,54 +90,145 @@
     </div>
     <h1 style="font-size:26px;font-weight:800;color:#0F172A;margin:0 0 4px;">Physical NFC Card Orders</h1>
     <p style="font-size:13.5px;color:#64748B;margin:0;">
-      Inspect custom physical card designs submitted by clients, export high-res laser printing specifications, and update shipping &amp; delivery statuses.
+      Inspect custom physical card designs submitted by enterprise clients, export high-res laser printing specifications, and update shipping &amp; delivery statuses.
     </p>
+  </div>
+  <div class="d-flex align-items-center gap-2">
+    <a href="?filter=new" class="btn btn-sm {% if is_filtering_new %}btn-success text-white shadow-sm{% else %}btn-outline-success{% endif %} rounded-pill px-3 py-2 fw-bold d-flex align-items-center gap-2" style="font-size:13px;" title="Filter by unfulfilled orders ready for printing">
+      <i class="bi bi-stars text-warning"></i>
+      <span>New NFC Orders</span>
+      <span class="badge {% if is_filtering_new %}bg-white text-success{% else %}bg-success text-white{% endif %} rounded-pill px-2 py-0.5">
+        {{ stats.new_orders|default:0 }}
+      </span>
+    </a>
+    {% if is_filtering_new or status_filter or search_q %}
+      <a href="{% url 'enterprise_admin_nfc_orders' %}" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-2" style="font-size:13px;">
+        <i class="bi bi-arrow-counterclockwise me-1"></i> View All Orders
+      </a>
+    {% endif %}
   </div>
 </div>
 
-<!-- 4 Key Status Metrics -->
+<!-- 6 Key Status Metrics with 1-Click Filters -->
 <div class="row g-3 mb-4">
-  <div class="col-6 col-md-3">
-    <div class="metric-card p-3">
-      <div class="metric-header mb-1">
-        <span class="metric-title" style="font-size:12px;">Total NFC Orders</span>
-        <div class="metric-icon-wrap metric-icon-blue" style="width:32px;height:32px;font-size:14px;"><i class="bi bi-broadcast-pin"></i></div>
+  <div class="col-6 col-md-4 col-lg-2">
+    <a href="{% url 'enterprise_admin_nfc_orders' %}" class="text-decoration-none d-block h-100">
+      <div class="metric-card p-3 {% if not is_filtering_new and not status_filter %}border-dark shadow-sm{% endif %}">
+        <div class="metric-header mb-1">
+          <span class="metric-title" style="font-size:12px;">Total NFC Orders</span>
+          <div class="metric-icon-wrap metric-icon-blue" style="width:30px;height:30px;font-size:13px;"><i class="bi bi-broadcast-pin"></i></div>
+        </div>
+        <div class="metric-value" style="font-size:20px;">{{ stats.total|default:0 }}</div>
+        <div class="metric-hint" style="font-size:11px;">All hardware orders</div>
       </div>
-      <div class="metric-value" style="font-size:22px;">{{ stats.total|default:0 }}</div>
-      <div class="metric-hint">All physical hardware orders</div>
-    </div>
+    </a>
   </div>
-  <div class="col-6 col-md-3">
-    <div class="metric-card p-3">
-      <div class="metric-header mb-1">
-        <span class="metric-title" style="font-size:12px;">In Production / Printing</span>
-        <div class="metric-icon-wrap metric-icon-indigo" style="width:32px;height:32px;font-size:14px;"><i class="bi bi-gear-wide-connected"></i></div>
+  <div class="col-6 col-md-4 col-lg-2">
+    <a href="?filter=new" class="text-decoration-none d-block h-100">
+      <div class="metric-card p-3 {% if is_filtering_new or status_filter == 'Order Placed' %}shadow-sm{% endif %}" style="{% if is_filtering_new or status_filter == 'Order Placed' %}background:#F0FDF4;border:2px solid #10B981 !important;{% else %}border:1px solid #A7F3D0;{% endif %}">
+        <div class="metric-header mb-1">
+          <span class="metric-title fw-bold" style="font-size:12px;color:#15803D;">⚡ New Orders</span>
+          <div class="metric-icon-wrap" style="background:#DCFCE7;color:#16A34A;width:30px;height:30px;font-size:13px;"><i class="bi bi-stars"></i></div>
+        </div>
+        <div class="metric-value text-success" style="font-size:20px;">{{ stats.new_orders|default:0 }}</div>
+        <div class="metric-hint" style="color:#166534;font-size:11px;font-weight:600;">Needs print ticket</div>
       </div>
-      <div class="metric-value text-primary" style="font-size:22px;">{{ stats.in_production|default:0 }}</div>
-      <div class="metric-hint">Printing &amp; chip encoding</div>
-    </div>
+    </a>
   </div>
-  <div class="col-6 col-md-3">
-    <div class="metric-card p-3">
-      <div class="metric-header mb-1">
-        <span class="metric-title" style="font-size:12px;">Ready for Dispatch</span>
-        <div class="metric-icon-wrap metric-icon-emerald" style="width:32px;height:32px;font-size:14px;"><i class="bi bi-box-seam-fill"></i></div>
+  <div class="col-6 col-md-4 col-lg-2">
+    <a href="?status=Printing+%26+Engraving" class="text-decoration-none d-block h-100">
+      <div class="metric-card p-3 {% if status_filter == 'Printing & Engraving' or status_filter == 'In Production' %}border-primary shadow-sm{% endif %}">
+        <div class="metric-header mb-1">
+          <span class="metric-title" style="font-size:12px;">In Production</span>
+          <div class="metric-icon-wrap metric-icon-indigo" style="width:30px;height:30px;font-size:13px;"><i class="bi bi-gear-wide-connected"></i></div>
+        </div>
+        <div class="metric-value text-primary" style="font-size:20px;">{{ stats.in_production|default:0 }}</div>
+        <div class="metric-hint" style="font-size:11px;">Engraving &amp; chip</div>
       </div>
-      <div class="metric-value text-success" style="font-size:22px;">{{ stats.ready_dispatch|default:0 }}</div>
-      <div class="metric-hint">Packed and ready for pickup</div>
-    </div>
+    </a>
   </div>
-  <div class="col-6 col-md-3">
-    <div class="metric-card p-3">
-      <div class="metric-header mb-1">
-        <span class="metric-title" style="font-size:12px;">Shipped / In Transit</span>
-        <div class="metric-icon-wrap metric-icon-amber" style="width:32px;height:32px;font-size:14px;"><i class="bi bi-truck"></i></div>
+  <div class="col-6 col-md-4 col-lg-2">
+    <a href="?status=Ready+for+Dispatch" class="text-decoration-none d-block h-100">
+      <div class="metric-card p-3 {% if status_filter == 'Ready for Dispatch' %}border-success shadow-sm{% endif %}">
+        <div class="metric-header mb-1">
+          <span class="metric-title" style="font-size:12px;">Ready Dispatch</span>
+          <div class="metric-icon-wrap metric-icon-emerald" style="width:30px;height:30px;font-size:13px;"><i class="bi bi-box-seam-fill"></i></div>
+        </div>
+        <div class="metric-value text-success" style="font-size:20px;">{{ stats.ready_dispatch|default:0 }}</div>
+        <div class="metric-hint" style="font-size:11px;">Packed for pickup</div>
       </div>
-      <div class="metric-value text-warning" style="font-size:22px;">{{ stats.shipped|default:0 }}</div>
-      <div class="metric-hint">Dispatched with tracking</div>
-    </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-4 col-lg-2">
+    <a href="?status=Shipped" class="text-decoration-none d-block h-100">
+      <div class="metric-card p-3 {% if status_filter == 'Shipped' %}border-warning shadow-sm{% endif %}">
+        <div class="metric-header mb-1">
+          <span class="metric-title" style="font-size:12px;">Shipped / Transit</span>
+          <div class="metric-icon-wrap metric-icon-amber" style="width:30px;height:30px;font-size:13px;"><i class="bi bi-truck"></i></div>
+        </div>
+        <div class="metric-value text-warning" style="font-size:20px;">{{ stats.shipped|default:0 }}</div>
+        <div class="metric-hint" style="font-size:11px;">With courier tracking</div>
+      </div>
+    </a>
+  </div>
+  <div class="col-6 col-md-4 col-lg-2">
+    <a href="?status=Delivered" class="text-decoration-none d-block h-100">
+      <div class="metric-card p-3 {% if status_filter == 'Delivered' %}border-success shadow-sm{% endif %}">
+        <div class="metric-header mb-1">
+          <span class="metric-title" style="font-size:12px;">Delivered</span>
+          <div class="metric-icon-wrap metric-icon-emerald" style="width:30px;height:30px;font-size:13px;"><i class="bi bi-check2-circle"></i></div>
+        </div>
+        <div class="metric-value text-success" style="font-size:20px;">{{ stats.delivered|default:0 }}</div>
+        <div class="metric-hint" style="font-size:11px;">Completed orders</div>
+      </div>
+    </a>
   </div>
 </div>
+
+<!-- Quick-Filter Tab Pills -->
+<div class="d-flex align-items-center gap-2 overflow-x-auto pb-2 mb-3">
+  <span class="text-secondary small fw-bold text-uppercase me-1" style="font-size:11px;letter-spacing:0.05em;">Quick View:</span>
+  <a href="{% url 'enterprise_admin_nfc_orders' %}" class="btn btn-sm {% if not is_filtering_new and not status_filter %}btn-dark text-white fw-bold shadow-sm{% else %}btn-light border text-secondary{% endif %} rounded-pill px-3 py-1" style="font-size:12px;">
+    All Orders <span class="badge {% if not is_filtering_new and not status_filter %}bg-secondary{% else %}bg-light text-dark border{% endif %} rounded-pill ms-1">{{ stats.total|default:0 }}</span>
+  </a>
+  <a href="?filter=new" class="btn btn-sm {% if is_filtering_new or status_filter == 'Order Placed' %}btn-success text-white fw-bold shadow-sm{% else %}btn-outline-success border-success-subtle{% endif %} rounded-pill px-3 py-1 d-flex align-items-center gap-1" style="font-size:12px;">
+    <i class="bi bi-stars text-warning"></i> New NFC Orders (Print Ready) <span class="badge {% if is_filtering_new or status_filter == 'Order Placed' %}bg-white text-success{% else %}bg-success text-white{% endif %} rounded-pill ms-1">{{ stats.new_orders|default:0 }}</span>
+  </a>
+  <a href="?status=Printing+%26+Engraving" class="btn btn-sm {% if status_filter == 'Printing & Engraving' or status_filter == 'In Production' %}btn-primary text-white fw-bold shadow-sm{% else %}btn-light border text-secondary{% endif %} rounded-pill px-3 py-1" style="font-size:12px;">
+    In Production <span class="badge {% if status_filter == 'Printing & Engraving' or status_filter == 'In Production' %}bg-white text-primary{% else %}bg-light text-dark border{% endif %} rounded-pill ms-1">{{ stats.in_production|default:0 }}</span>
+  </a>
+  <a href="?status=Ready+for+Dispatch" class="btn btn-sm {% if status_filter == 'Ready for Dispatch' %}btn-success text-white fw-bold shadow-sm{% else %}btn-light border text-secondary{% endif %} rounded-pill px-3 py-1" style="font-size:12px;">
+    Ready for Dispatch <span class="badge {% if status_filter == 'Ready for Dispatch' %}bg-white text-success{% else %}bg-light text-dark border{% endif %} rounded-pill ms-1">{{ stats.ready_dispatch|default:0 }}</span>
+  </a>
+  <a href="?status=Shipped" class="btn btn-sm {% if status_filter == 'Shipped' %}btn-warning text-dark fw-bold shadow-sm{% else %}btn-light border text-secondary{% endif %} rounded-pill px-3 py-1" style="font-size:12px;">
+    Shipped <span class="badge {% if status_filter == 'Shipped' %}bg-dark text-white{% else %}bg-light text-dark border{% endif %} rounded-pill ms-1">{{ stats.shipped|default:0 }}</span>
+  </a>
+  <a href="?status=Delivered" class="btn btn-sm {% if status_filter == 'Delivered' %}btn-success text-white fw-bold shadow-sm{% else %}btn-light border text-secondary{% endif %} rounded-pill px-3 py-1" style="font-size:12px;">
+    Delivered <span class="badge {% if status_filter == 'Delivered' %}bg-white text-success{% else %}bg-light text-dark border{% endif %} rounded-pill ms-1">{{ stats.delivered|default:0 }}</span>
+  </a>
+</div>
+
+{% if is_filtering_new %}
+<!-- New Orders Active Notice Banner -->
+<div class="alert alert-success border-success-subtle shadow-sm rounded-4 p-3 mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
+  <div class="d-flex align-items-center gap-3">
+    <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm" style="width:38px;height:38px;font-size:18px;">
+      <i class="bi bi-printer-fill"></i>
+    </div>
+    <div>
+      <div class="fw-bold text-success" style="font-size:14px;">
+        <i class="bi bi-stars text-warning me-1"></i> Showing New NFC Orders ({{ orders|length }} order{{ orders|length|pluralize }} waiting for print sheet)
+      </div>
+      <div class="text-secondary small" style="font-size:12.5px;">
+        Click <strong>Print Sheet &rarr;</strong> to open CR80 laser engraving specifications or <strong>Quick Print</strong> to print the ticket directly.
+      </div>
+    </div>
+  </div>
+  <a href="{% url 'enterprise_admin_nfc_orders' %}" class="btn btn-sm btn-outline-success rounded-pill px-3 fw-semibold">
+    <i class="bi bi-x-circle me-1"></i> View All Orders ({{ stats.total|default:0 }})
+  </a>
+</div>
+{% endif %}
 
 <!-- Search and Status Filter Bar -->
 <div class="card border-0 shadow-sm p-3 mb-4 rounded-4" style="background:#FFFFFF;border:1px solid #E2E8F0 !important;">
@@ -150,15 +241,16 @@
     </div>
     <div class="col-md-4 col-lg-3">
       <select name="status" class="form-select" onchange="this.form.submit()">
-        <option value="" {% if not status_filter %}selected{% endif %}>All Production Statuses</option>
+        <option value="" {% if not status_filter and not is_filtering_new %}selected{% endif %}>All Production Statuses</option>
+        <option value="new" {% if is_filtering_new %}selected{% endif %}>⚡ New NFC Orders (Print Ready)</option>
         {% for opt in status_options %}
-          <option value="{{ opt }}" {% if status_filter == opt %}selected{% endif %}>{{ opt }}</option>
+          <option value="{{ opt }}" {% if status_filter == opt and not is_filtering_new %}selected{% endif %}>{{ opt }}</option>
         {% endfor %}
       </select>
     </div>
     <div class="col-auto">
       <button type="submit" class="btn btn-dark rounded-pill px-3">Filter</button>
-      {% if search_q or status_filter %}
+      {% if search_q or status_filter or is_filtering_new %}
         <a href="{% url 'enterprise_admin_nfc_orders' %}" class="btn btn-outline-secondary rounded-pill px-3">Clear</a>
       {% endif %}
     </div>
@@ -175,6 +267,11 @@
           <code>{{ card.card_id }}</code>
         </span>
         <strong style="color:#0F172A;font-size:15px;">{{ card.business_name }}</strong>
+        {% if card.is_new_order %}
+          <span class="badge bg-success text-white rounded-pill px-2.5 py-1 fw-bold" style="font-size:11px;">
+            <i class="bi bi-stars text-warning me-1"></i> NEW NFC ORDER
+          </span>
+        {% endif %}
         <span class="text-secondary small">&bull; Submitted {{ card.created_at|date:"d M Y, h:i A" }}</span>
       </div>
 
@@ -190,6 +287,10 @@
         {% elif card.current_status == 'Printing & Engraving' or card.current_status == 'Printing' %}
           <span class="badge bg-primary text-white px-3 py-1.5 rounded-pill fw-bold" style="font-size:12px;">
             <i class="bi bi-gear-wide-connected me-1"></i> Printing &amp; Engraving
+          </span>
+        {% elif card.current_status == 'Ready for Dispatch' %}
+          <span class="badge text-white px-3 py-1.5 rounded-pill fw-bold" style="font-size:12px;background:#0284c7;">
+            <i class="bi bi-box-seam me-1"></i> Ready for Dispatch
           </span>
         {% elif card.current_status == 'Order Placed' %}
           <span class="badge bg-info text-white px-3 py-1.5 rounded-pill fw-bold" style="font-size:12px;">
@@ -234,12 +335,15 @@
             </a>
           </div>
 
-          <div class="d-flex gap-2">
+          <div class="d-flex flex-wrap gap-2">
             <a href="{% url 'card_preview' card_id=card.card_id %}" target="_blank" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1.5" title="View Digital Card Preview">
               <i class="bi bi-eye me-1"></i> Live Preview
             </a>
-            <a href="{% url 'enterprise_admin_nfc_print_sheet' card_id=card.card_id %}" target="_blank" class="btn btn-sm btn-dark rounded-pill px-3 py-1.5 fw-bold" title="Open Laser Production Print Sheet">
-              <i class="bi bi-printer-fill me-1 text-warning"></i> Print Sheet &rarr;
+            <a href="{% url 'enterprise_admin_nfc_print_sheet' card_id=card.card_id %}" target="_blank" class="btn btn-sm btn-dark rounded-pill px-3.5 py-1.5 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5" style="background:#0F172A;border:1px solid #D4AF37;" title="Open Laser Production Print Sheet">
+              <i class="bi bi-printer-fill text-warning"></i> Print Sheet &rarr;
+            </a>
+            <a href="{% url 'enterprise_admin_nfc_print_sheet' card_id=card.card_id %}?autoprint=1" target="_blank" class="btn btn-sm btn-outline-dark rounded-pill px-2.5 py-1.5" title="Quick 1-Click Print">
+              <i class="bi bi-lightning-charge-fill text-warning"></i> Quick Print
             </a>
           </div>
         </div>
@@ -327,12 +431,15 @@
 
             <form method="post" action="{% url 'enterprise_admin_nfc_status_update' card_id=card.card_id %}">
               {% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.get_full_path }}">
               <div class="mb-2">
                 <label class="form-label small fw-semibold text-muted mb-1" style="font-size:11px;">Current Production / Dispatch Status:</label>
                 <select name="status" class="form-select form-select-sm" required>
-                  {% for opt in status_options %}
-                    <option value="{{ opt }}" {% if card.current_status == opt %}selected{% endif %}>{{ opt }}</option>
-                  {% endfor %}
+                  <option value="Order Placed" {% if card.current_status == 'Order Placed' or card.is_new_order %}selected{% endif %}>Order Placed</option>
+                  <option value="Printing & Engraving" {% if card.current_status == 'Printing & Engraving' or card.current_status == 'Printing' or card.current_status == 'In Production' %}selected{% endif %}>Printing &amp; Engraving</option>
+                  <option value="Ready for Dispatch" {% if card.current_status == 'Ready for Dispatch' %}selected{% endif %}>Ready for Dispatch</option>
+                  <option value="Shipped" {% if card.current_status == 'Shipped' %}selected{% endif %}>Shipped</option>
+                  <option value="Delivered" {% if card.current_status == 'Delivered' %}selected{% endif %}>Delivered</option>
                 </select>
               </div>
 

@@ -10,6 +10,20 @@ from django.core.exceptions import ImproperlyConfigured
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Load environment variables from .env file if present
+for _env_file in [BASE_DIR.parent / '.env', BASE_DIR / '.env']:
+    if _env_file.exists():
+        with open(_env_file, 'r', encoding='utf-8') as _f:
+            for _line in _f:
+                _line = _line.strip()
+                if _line and not _line.startswith('#') and '=' in _line:
+                    _k, _v = _line.split('=', 1)
+                    _k = _k.strip()
+                    _v = _v.strip().strip("'").strip('"')
+                    if _k not in os.environ:
+                        os.environ[_k] = _v
+        break
+
 
 def _csv_env(name):
     raw = os.environ.get(name, '')
@@ -41,6 +55,9 @@ if not SECRET_KEY:
     SECRET_KEY = _DEV_SECRET_KEY
 
 
+# Base domain for digital business card subdomains (e.g. mybrand.com when hosted)
+CARD_BASE_DOMAIN = os.environ.get('CARD_BASE_DOMAIN', '').strip()
+
 _env_hosts = _csv_env('ALLOWED_HOSTS')
 if not IS_PRODUCTION and DEBUG and not _env_hosts:
     ALLOWED_HOSTS = ['*']
@@ -54,11 +71,30 @@ else:
             if _vercel_host and _vercel_host not in ALLOWED_HOSTS:
                 ALLOWED_HOSTS.append(_vercel_host)
     if not IS_PRODUCTION:
-        for _local_host in ('127.0.0.1', 'localhost'):
+        for _local_host in ('127.0.0.1', 'localhost', '.localhost', '.nip.io', '.sslip.io'):
             if _local_host not in ALLOWED_HOSTS:
                 ALLOWED_HOSTS.append(_local_host)
 
+# Ensure base domain and all wildcard subdomains (*.qkbiz.com) are allowed
+if CARD_BASE_DOMAIN:
+    _dot_domain = f".{CARD_BASE_DOMAIN.lstrip('.')}"
+    _bare_domain = CARD_BASE_DOMAIN.lstrip('.')
+    if _dot_domain not in ALLOWED_HOSTS and '*' not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(_dot_domain)
+    if _bare_domain not in ALLOWED_HOSTS and '*' not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(_bare_domain)
+
 CSRF_TRUSTED_ORIGINS = _csv_env('CSRF_TRUSTED_ORIGINS')
+if CARD_BASE_DOMAIN:
+    _bare_domain = CARD_BASE_DOMAIN.lstrip('.')
+    for _scheme in ('https', 'http'):
+        _origin_wild = f"{_scheme}://*.{_bare_domain}"
+        _origin_bare = f"{_scheme}://{_bare_domain}"
+        if _origin_wild not in CSRF_TRUSTED_ORIGINS:
+            CSRF_TRUSTED_ORIGINS.append(_origin_wild)
+        if _origin_bare not in CSRF_TRUSTED_ORIGINS:
+            CSRF_TRUSTED_ORIGINS.append(_origin_bare)
+
 if IS_VERCEL or IS_PRODUCTION:
     if 'https://*.vercel.app' not in CSRF_TRUSTED_ORIGINS:
         CSRF_TRUSTED_ORIGINS.append('https://*.vercel.app')
@@ -110,6 +146,7 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'apps.domains.middleware.SubdomainRoutingMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
@@ -383,11 +420,17 @@ LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/dashboard/overview/'
 LOGOUT_REDIRECT_URL = '/login/'
 
-# Email Configuration (for Yearly Plan Expiration & Renewal Notifications)
-EMAIL_BACKEND = os.environ.get('DJANGO_EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
-DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'BrandNest Subscriptions <renewals@brandnest.in>')
+# Email Configuration (for Order Confirmation, Status Updates & Yearly Expirations)
 EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() in ('true', '1')
-EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '').strip()
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '').strip()
+
+# Automatically activate SMTP backend when Gmail/SMTP credentials are configured
+if EMAIL_HOST_USER and EMAIL_HOST_PASSWORD:
+    EMAIL_BACKEND = os.environ.get('DJANGO_EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
+    DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', f"BrandNest <{EMAIL_HOST_USER}>")
+else:
+    EMAIL_BACKEND = os.environ.get('DJANGO_EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+    DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'BrandNest Deliveries <orders@brandnest.in>')
